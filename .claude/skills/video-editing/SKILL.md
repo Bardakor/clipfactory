@@ -40,7 +40,7 @@ Python decides, Remotion draws. `render/layout.py::resolve_layout` returns segme
 | Layout | Used when | Fallback |
 | --- | --- | --- |
 | `full` | default: whole gameplay on a blurred backdrop | — |
-| `split` | facecam found (`auto`) or requested | `full` if no reliable facecam |
+| `split` | facecam found (`auto`) or requested: streamer and game stacked at full width, streamer on top unless `facecam_position` is `bottom` | `full` if no reliable facecam |
 | `crop` | requested | centred if motion is not clearly concentrated |
 | `dynamic` | requested | changes framing only at scene cuts ≥4 s apart; `full` if no shot qualifies |
 | `manual` | user rectangle | — |

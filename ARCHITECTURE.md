@@ -37,7 +37,7 @@ SQLite in WAL mode is the only store. Media stays on disk; rows hold relative pa
 
 | Artifact | Key | Reused when |
 | --- | --- | --- |
-| Source file | fingerprint (size + 3 sampled blocks) | same file uploaded / same YouTube id imported again |
+| Source file | fingerprint (size + 3 sampled blocks) | same file uploaded / same YouTube or Twitch id imported again |
 | Analysis audio | source id | always |
 | Transcript | fingerprint + provider + model + language + vocabulary + corrections | any project on the source; per-chunk checkpoints make it resumable |
 | Audio signals | fingerprint + detector settings | detector settings unchanged |
@@ -96,8 +96,24 @@ FFmpeg does what it is good at: a frame-accurate constant-frame-rate cut with co
 audio track, captions. Python decides the layout as a list of panels (source rectangle → output rectangle) per time
 segment, so every layout — full, crop, split, dynamic, manual — is the same composition.
 
-Automatic layout keeps the whole gameplay visible. Tighter framing needs evidence: a face stable in one corner
-across the video for split; concentrated, stable motion for crop. Otherwise it falls back and says so.
+Automatic layout keeps the whole gameplay visible. Tighter framing needs evidence: a facecam for split;
+concentrated, stable motion for crop. Otherwise it falls back and says so.
+
+**Facecam** (`render/layout.py::detect_facecam`, once per source, 24 frames spread over the video):
+
+1. YuNet (OpenCV's face detector, model bundled in `clipfactory/assets/`) finds faces in every frame. The face that
+   sits at the same place in at least half of them is the streamer: game characters wander, an overlay does not.
+2. The webcam *window* is then measured, not guessed: per pixel, the share of frames in which it lies on an edge.
+   The game changes constantly, so only overlay borders persist. The four persistent lines that best enclose the
+   face are the window (`window: "edges"`), trimmed by 2 % to drop a decorative frame.
+3. No rectangle (a cut-out streamer, a round frame) → a head-and-shoulders box around the face
+   (`window: "estimated"`). A stable face in the middle of the screen with no window is a full-screen camera, not an
+   overlay: no facecam.
+
+**Split** stacks streamer and game edge to edge at full width, streamer on top by default (the bottom fifth of a
+short is covered by the platform's own caption and buttons) or at the bottom on request. The webcam takes 26–38 % of
+the height, cropped around the face if its shape does not fit; the game gets the rest, cropped to its centre.
+Captions sit on the game, just past the seam.
 
 Captions use `@remotion/captions` (`Caption`, `createTikTokStyleCaptions`). Page breaks are chosen in Python
 (length per style, pauses, sentence ends) and carried by `pageBreakAfter`. Words with no measured timing have

@@ -43,6 +43,7 @@ def build_spec(ctx: JobContext, clip_id: str, mode: str) -> RenderSpec:
             src_has_audio=inputs.has_audio, start_ms=clip.start_ms, end_ms=clip.end_ms, width=inputs.settings.width,
             height=inputs.settings.height, fps=inputs.settings.fps, layout=clip.layout,
             manual_rect=Rect.model_validate(manual) if manual else None, facecam=inputs.facecam,
+            facecam_position=(clip.layout_params or {}).get("facecam_position") or inputs.settings.facecam_position,
             cuts_ms=[int(c) for c in visual.cuts_ms] if visual is not None else [],
             subtitle_style=clip.subtitle_style, subtitle_options=clip.subtitle_options or {},
             captions=[Caption.model_validate(c) for c in clip.captions or []],

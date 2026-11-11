@@ -13,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { api, uploadSource } from "@/lib/api";
-import { LAYOUT_LABELS, PRESET_LABELS, PROFILE_LABELS, STYLE_LABELS, bytes, clock } from "@/lib/format";
+import { FACECAM_POSITION_LABELS, LAYOUT_LABELS, PRESET_LABELS, PROFILE_LABELS, STYLE_LABELS, bytes, clock } from "@/lib/format";
 import { useHealth, useRuntimeSettings } from "@/lib/queries";
-import type { Project, Source, YouTubeInfo } from "@/lib/types";
+import type { Project, RemoteVideo, Source } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const schema = z
@@ -29,6 +29,7 @@ const schema = z
     subtitle_style: z.enum(["viral", "clean", "gaming"]),
     burn_subtitles: z.boolean(),
     layout: z.enum(["auto", "full", "crop", "split", "dynamic"]),
+    facecam_position: z.enum(["top", "bottom"]),
     resolution: z.enum(["1080x1920", "720x1280"]),
     fps: z.enum(["30", "60"]),
     language: z.enum(["auto", "fr", "en"]),
@@ -51,9 +52,9 @@ export default function NewProjectPage() {
   const router = useRouter();
   const health = useHealth();
   const runtime = useRuntimeSettings();
-  const [mode, setMode] = useState<"youtube" | "upload">("youtube");
+  const [mode, setMode] = useState<"url" | "upload">("url");
   const [url, setUrl] = useState("");
-  const [video, setVideo] = useState<YouTubeInfo | null>(null);
+  const [video, setVideo] = useState<RemoteVideo | null>(null);
   const [rights, setRights] = useState(false);
   const [inspecting, setInspecting] = useState(false);
   const [source, setSource] = useState<Source | null>(null);
@@ -74,6 +75,7 @@ export default function NewProjectPage() {
       subtitle_style: runtime.data?.subtitle_style ?? "viral",
       burn_subtitles: true,
       layout: "auto",
+      facecam_position: "top",
       resolution: "1080x1920",
       fps: "30",
       language: "auto",
@@ -88,7 +90,7 @@ export default function NewProjectPage() {
     setVideo(null);
     setInspecting(true);
     try {
-      setVideo(await api<YouTubeInfo>("/sources/youtube/inspect", { method: "POST", body: { url } }));
+      setVideo(await api<RemoteVideo>("/sources/url/inspect", { method: "POST", body: { url } }));
     } catch (error) {
       setProblem((error as Error).message);
     } finally {
@@ -127,6 +129,7 @@ export default function NewProjectPage() {
       subtitle_style: values.subtitle_style,
       burn_subtitles: values.burn_subtitles,
       layout: values.layout,
+      facecam_position: values.facecam_position,
       language: values.language,
       instructions: values.instructions,
       width,
@@ -135,7 +138,7 @@ export default function NewProjectPage() {
       subtitle_options: runtime.data?.subtitle_options,
     };
     try {
-      const body = mode === "upload" ? { source_id: source?.id, settings } : { youtube_url: video?.url, rights_confirmed: rights, settings };
+      const body = mode === "upload" ? { source_id: source?.id, settings } : { video_url: video?.url, rights_confirmed: rights, settings };
       const { project } = await api<{ project: Project }>("/projects", { method: "POST", body });
       router.push(`/projets/${project.id}`);
     } catch (error) {
@@ -158,13 +161,13 @@ export default function NewProjectPage() {
             value={mode}
             onChange={setMode}
             options={[
-              { value: "youtube", label: "URL YouTube" },
+              { value: "url", label: "URL YouTube / Twitch" },
               { value: "upload", label: "Fichier local" },
             ]}
           />
         </div>
 
-        {mode === "youtube" ? (
+        {mode === "url" ? (
           <div>
             <div className="flex gap-3">
               <div className="relative flex-1">
@@ -182,8 +185,8 @@ export default function NewProjectPage() {
                       if (url.trim()) void inspect();
                     }
                   }}
-                  placeholder="https://www.youtube.com/watch?v=…"
-                  aria-label="URL YouTube"
+                  placeholder="https://www.youtube.com/watch?v=… ou https://www.twitch.tv/videos/…"
+                  aria-label="URL YouTube ou Twitch"
                   className="h-14 border-0 bg-raised pl-12 text-base"
                 />
               </div>
@@ -396,8 +399,22 @@ export default function NewProjectPage() {
               ))}
             </select>
             <span className="mt-1.5 block text-[11px] text-muted-foreground">
-              « Automatique » garde tout le gameplay visible, et passe en split si une facecam est détectée de façon fiable.
+              « Automatique » passe en streamer + jeu si une facecam est détectée de façon fiable, sinon garde tout le gameplay visible.
             </span>
+          </Field>
+          <Field label="Position du streamer" hint="quand une facecam est détectée" group>
+            <Controller
+              control={control}
+              name="facecam_position"
+              render={({ field }) => (
+                <Segmented
+                  className="w-full"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={Object.entries(FACECAM_POSITION_LABELS).map(([value, label]) => ({ value: value as FormValues["facecam_position"], label }))}
+                />
+              )}
+            />
           </Field>
           <div className="grid grid-cols-3 gap-4">
             <Field label="Résolution">

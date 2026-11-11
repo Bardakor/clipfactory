@@ -1,6 +1,6 @@
 # CLIPFACTORY
 
-A local AI clipping studio for gaming footage. Paste a YouTube URL or drop a video; get back ranked, captioned,
+A local AI clipping studio for gaming footage. Paste a YouTube or Twitch link or drop a video; get back ranked, captioned,
 vertical clips ready for TikTok, Reels and Shorts — with subtitles, suggested captions and metadata.
 
 Built for an Apple Silicon Mac. The only external credential is an OpenRouter API key.
@@ -44,7 +44,8 @@ ever simulated in normal operation.
 
 ## Using it
 
-1. **Nouveau projet** — paste a YouTube URL (you must confirm you own or may reuse the video) or drop a file
+1. **Nouveau projet** — paste a YouTube URL, a Twitch VOD (`twitch.tv/videos/…`) or a Twitch clip (you must confirm
+   you own or may reuse the video — a streamer's VOD is theirs: get their permission first) or drop a file
    (MP4, MOV, MKV, WebM). Pick a profile (GTA 6, GTA RP, GTA Action, Gaming général), how many clips, length range,
    quality threshold, AI preset, subtitle style and layout. Optional free-text instructions steer the editor model.
 2. **Traitement** — watch the nine stages with measured progress, the activity log, real cost so far, and
@@ -107,8 +108,11 @@ banner, and excluded from dashboard statistics.
 | Re-ranking with new settings reuses paid answers | live: second run served from cache, $0, identical scores | ✅ |
 | Qualité max preset, real video input to a model | — | ❌ not run |
 | OpenRouter speech-to-text provider | mocked HTTP only | ⚠️ |
-| Editorial quality | one English police-RP session, judged by reading the justifications — not a systematic evaluation, and no French RP footage yet | ⚠️ |
-| Facecam split, smart crop | not exercised: the test footage had no facecam | ❌ |
+| Editorial quality | one English police-RP session, judged by reading the justifications — not a systematic evaluation; French RP only on a 3-minute extract with the Rapide preset | ⚠️ |
+| Twitch import (VOD over HLS, clip) | a real 1080p60 VOD and a real clip from NASA's channel; the VOD through the running app to a validated clip | ✅ |
+| Facecam detection | 3-minute extracts of four CC-BY GTA streams: bordered webcam and small borderless webcam measured to the pixel, cut-out streamer framed by estimate, no false detection on the stream without one | ✅ on those four |
+| Streamer + game layout | a French CC-BY GTA RP stream through the full pipeline with real inference (Rapide): 3 validated clips, streamer on top; one re-rendered with the streamer at the bottom | ✅ |
+| Smart crop | not exercised on real footage | ❌ |
 | Sources longer than 20 minutes | — | ❌ not run (design is streaming/chunked; untested at 3 h) |
 
 **What the real GTA RP run showed.** From 24 candidates the ranking separated real moments (an armed suspect
@@ -118,7 +122,7 @@ ranked in the top six; windows found from signals alone mostly did not. Scores t
 for 8+/10 to be rare), which is why the default quality threshold is 45: at 55 this session gave 2 clips, at 40 it
 gave 4. On the synthetic fixture the vision model correctly reported a colour test card instead of inventing action.
 
-**Still to do with your own footage:** real GTA VI gameplay (see Known limitations), a French GTA RP VOD, a stream with a facecam, a multi-hour source, and the
+**Still to do with your own footage:** real GTA VI gameplay (see Known limitations), a multi-hour source, and the
 Qualité max preset.
 
 ## Measured performance
@@ -163,8 +167,14 @@ measured yet.
   practice, but every segment in a chunk carries the chunk's language tag.
 - **No speaker diarisation** and **no sound-event classifier** (laughter, gunshots): audio events are named for
   what is measured. Both are planned optional additions.
-- **Facecam detection** uses a classical face detector and a stability test. It has only been exercised on footage
-  without a facecam; expect to pick the layout by hand at first.
+- **Facecam detection** was verified on four streams only. It takes one webcam position for the whole video: a
+  streamer who moves or hides the webcam mid-stream gets the majority position. Round or cut-out webcams are framed
+  by estimate around the face. A very small webcam (the smallest tested was 118×122 px) is found but looks soft once
+  enlarged. There is no manual override of the webcam rectangle yet; when detection is wrong, use another layout.
+- **Streamer + game** crops the game to its centre (about 46 % of its width): the minimap and HUD at the edges are
+  not shown. Use "Gameplay complet" when they matter.
+- **Twitch**: VODs and clips only, no live capture, and the whole VOD is downloaded (about 3 GB per hour at
+  1080p60; the import refuses anything over the size limit). Subscriber-only VODs are refused by Twitch.
 - **Smart crop** follows motion, not semantics; it stays centred unless the motion is clearly concentrated.
 - **Subtitle edits that change the word count** lose word-level highlighting for that line (the timing would
   otherwise be invented).
@@ -179,8 +189,8 @@ measured yet.
 
 ## Next steps
 
-1. Run your own footage: a French RP VOD, a facecam stream, a multi-hour source.
+1. Run your own footage: a multi-hour source, more streamers' webcam layouts.
 2. Tune prompts and profile weights on real footage; use the reject reasons collected in `feedback`.
 3. Sound-event classification (CLAP or YAMNet) feeding the interest curve.
-4. Evaluate facecam detection and smart crop on real streams.
+4. Import only a time range of a long VOD; manual webcam rectangle in the editor; smart crop on real streams.
 5. Official TikTok adapter once a developer app exists.

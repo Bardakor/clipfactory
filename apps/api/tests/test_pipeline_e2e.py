@@ -147,7 +147,7 @@ def test_failed_job_reports_a_useful_error(settings, tmp_path):
         assert bad.status_code == 422 and bad.json()["error"]["code"] == "media_error"
         assert not list(settings.path("sources").iterdir())  # nothing left behind
         assert client.post("/api/sources/upload", params={"filename": "x.exe"}, content=b"MZ").status_code == 422
-        assert client.post("/api/projects", json={"youtube_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).json()["error"]["message"].startswith("confirm")
+        assert client.post("/api/projects", json={"video_url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}).json()["error"]["message"].startswith("confirm")
 
 
 @pytest.mark.skipif(shutil.which("say") is None, reason="needs macOS speech synthesis to create real speech")

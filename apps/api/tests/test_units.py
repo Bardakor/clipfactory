@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import cv2
 import numpy as np
 import pytest
 
@@ -15,7 +16,7 @@ from clipfactory.domain import Caption, ProjectSettings, Rect, Segment, Word
 from clipfactory.errors import ValidationFailed
 from clipfactory.media import ingest
 from clipfactory.render import captions as cap
-from clipfactory.render.layout import crop_centre, resolve_layout
+from clipfactory.render.layout import crop_centre, edge_persistence, find_window, resolve_layout, stable_face
 from clipfactory.render.renderer import slugify
 from clipfactory.settings_store import AudioDetectorSettings, RuntimeSettings, with_profile_vocabulary
 from clipfactory.transcription.service import apply_corrections, correct_words
@@ -318,9 +319,56 @@ def test_auto_layout_preserves_full_gameplay():
 def test_split_falls_back_without_a_reliable_facecam():
     layout = resolve_layout("split", src_w=1920, src_h=1080, out_w=1080, out_h=1920, duration_ms=30_000, facecam={"found": False})
     assert layout.used == "full" and "facecam" in layout.reason
-    cam = {"found": True, "rect": {"x": 0.02, "y": 0.6, "w": 0.22, "h": 0.3}}
-    split = resolve_layout("auto", src_w=1920, src_h=1080, out_w=1080, out_h=1920, duration_ms=30_000, facecam=cam)
-    assert split.used == "split" and len(split.segments[0].panels) == 2
+
+
+def test_split_stacks_streamer_and_game_edge_to_edge():
+    cam = {"found": True, "window": "edges", "rect": {"x": 0.02, "y": 0.6, "w": 0.25, "h": 0.25}, "face": {"x": 0.11, "y": 0.64, "w": 0.06, "h": 0.12}}
+    kw = dict(src_w=1920, src_h=1080, out_w=1080, out_h=1920, duration_ms=30_000, facecam=cam)
+    top = resolve_layout("auto", **kw)
+    streamer, game = top.segments[0].panels
+    assert top.used == "split" and "en haut" in top.reason
+    assert (streamer.x, streamer.y, streamer.w) == (0, 0, 1080) and (game.y, game.w) == (streamer.h, 1080) and streamer.h + game.h == 1920
+    assert 0.26 * 1920 <= streamer.h <= 0.38 * 1920 and streamer.y + streamer.h < top.caption_y < 1920 * 0.78
+    for panel in (streamer, game):  # nothing is stretched: each source crop has the shape of its panel
+        assert (panel.src.w * 1920) / (panel.src.h * 1080) == pytest.approx(panel.w / panel.h, rel=0.01)
+    assert streamer.src.x >= 0.02 and streamer.src.x + streamer.src.w <= 0.27 + 1e-6  # stays inside the webcam window
+    assert game.src.x == pytest.approx((1 - game.src.w) / 2) and game.src.h == 1  # full height, centred
+
+    bottom = resolve_layout("split", **kw, facecam_position="bottom")
+    game_b, streamer_b = bottom.segments[0].panels
+    assert game_b.y == 0 and streamer_b.y == game_b.h and streamer_b.src == streamer.src and "en bas" in bottom.reason
+    assert bottom.caption_y < game_b.h
+
+    tall = cam | {"rect": {"x": 0.02, "y": 0.4, "w": 0.2, "h": 0.55}, "face": {"x": 0.09, "y": 0.45, "w": 0.06, "h": 0.12}}
+    cropped = resolve_layout("split", **(kw | {"facecam": tall})).segments[0].panels[0]
+    assert cropped.h == int(0.38 * 1920) // 2 * 2 and cropped.src.y == pytest.approx(0.4)  # too tall: cropped, keeping the face
+
+
+def test_stable_face_ignores_wandering_faces():
+    cam, wander = (0.10, 0.70, 0.06, 0.12), [(0.1 * i, 0.3, 0.05, 0.1) for i in range(8)]
+    frames = [[cam, wander[i]] if i % 4 else [wander[i]] for i in range(8)]  # the webcam face is missed in 2 frames of 8
+    face, hits = stable_face(frames)
+    assert hits == 6 and face == pytest.approx(cam)
+    assert stable_face([[w] for w in wander])[1] == 1
+    assert stable_face([[(0.3, 0.2, 0.4, 0.5)]] * 8) == (None, 0)  # a full-screen face is not an overlay
+
+
+def test_find_window_measures_a_webcam_border_on_changing_footage():
+    rng = np.random.default_rng(0)
+    frames = []
+    for i in range(12):
+        frame = cv2.GaussianBlur(rng.integers(0, 255, (270, 480), dtype=np.uint8), (0, 0), 6)  # ever-changing "game"
+        frame[180:250, 20:130] = 60 + (i % 3)  # a webcam window with a dark, nearly static room
+        frame[195:225, 60:90] = 170  # the face
+        cv2.rectangle(frame, (20, 180), (130, 250), 255, 2)
+        frames.append(frame)
+    vertical, horizontal = edge_persistence(frames)
+    face = (60 / 480, 195 / 270, 30 / 480, 30 / 270)
+    (x, y, w, h), score = find_window(face, vertical, horizontal)
+    assert score > 0.9
+    assert (x * 480, y * 270, (x + w) * 480, (y + h) * 270) == pytest.approx((20, 180, 130, 250), abs=5)  # lands just inside the 2 px border
+    blank = np.zeros((270, 480), np.float32)
+    assert find_window(face, blank, blank) is None  # a cut-out streamer has no border to measure
 
 
 def test_crop_uses_saliency_only_when_confident():
@@ -369,6 +417,35 @@ def test_youtube_urls_accepted(url, video_id):
 def test_youtube_urls_rejected(url):
     with pytest.raises(ValidationFailed):
         ingest.parse_youtube_url(url)
+
+
+@pytest.mark.parametrize(("url", "kind", "video_id", "canonical"), [
+    ("https://www.twitch.tv/videos/2860537669?t=1h2m", "twitch", "2860537669", "https://www.twitch.tv/videos/2860537669"),
+    ("https://m.twitch.tv/videos/2860537669", "twitch", "2860537669", "https://www.twitch.tv/videos/2860537669"),
+    ("https://www.twitch.tv/nasa/clip/FitSnappyCaribou-F7IcTqcQWY2V9SrX", "twitch", "FitSnappyCaribou-F7IcTqcQWY2V9SrX", "https://clips.twitch.tv/FitSnappyCaribou-F7IcTqcQWY2V9SrX"),
+    ("https://clips.twitch.tv/IronicGrotesqueCaribouDxAbomb", "twitch", "IronicGrotesqueCaribouDxAbomb", "https://clips.twitch.tv/IronicGrotesqueCaribouDxAbomb"),
+    ("https://youtu.be/dQw4w9WgXcQ", "youtube", "dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+])  # fmt: skip
+def test_video_urls_resolve_to_a_site_and_a_canonical_link(url, kind, video_id, canonical):
+    assert ingest.parse_video_url(url) == (kind, video_id)
+    assert ingest.canonical_url(kind, video_id) == canonical
+
+
+@pytest.mark.parametrize("url", [
+    "https://www.twitch.tv/nasa",  # a channel: live broadcast, not importable
+    "https://www.twitch.tv/nasa/videos",
+    "https://www.twitch.tv/videos/abc",
+    "https://www.twitch.tv/videos/2860537669/../../x",
+    "http://www.twitch.tv/videos/2860537669",
+    "https://twitch.tv.evil.example/videos/2860537669",
+    "https://user@www.twitch.tv/videos/2860537669",
+    "https://clips.twitch.tv/a/b",
+    "https://vimeo.com/123456",
+    "https://127.0.0.1/videos/2860537669",
+])  # fmt: skip
+def test_video_urls_rejected(url):
+    with pytest.raises(ValidationFailed):
+        ingest.parse_video_url(url)
 
 
 def test_upload_names_are_never_trusted():

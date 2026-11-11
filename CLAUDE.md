@@ -12,7 +12,7 @@ apps/api/        Python 3.12 — FastAPI, SQLite (WAL), worker, pipeline, AI gat
   clipfactory/
     api/           HTTP routes + serializers (read and enqueue only; never do heavy work in a request)
     pipeline/      runner (job state machine), context, stages_source / stages_editorial / stages_render
-    media/         ffmpeg + ffprobe wrappers, ingest (upload, YouTube), export validation, subprocess runner
+    media/         ffmpeg + ffprobe wrappers, ingest (upload, YouTube, Twitch), export validation, subprocess runner
     transcription/ providers (MLX Whisper, OpenRouter STT, fake) + chunked, checkpointed service
     analysis/      audio + visual signal detection, candidates, refine (boundaries), ranking (ClipRanker)
     ai/            registry (catalogue + presets), gateway (OpenRouter), prompts, schemas, analyst
@@ -82,7 +82,8 @@ scripts/make-fixture.sh        # synthetic video with real synthesised FR/EN spe
   the frontend. `/api/health` exposes a boolean.
 - File names from users are display metadata; on-disk names are generated ids. Resolve paths with `Settings.path()`,
   which rejects anything outside `data/`.
-- YouTube: only the 11-character id is kept from user input; every request goes to a canonical URL we build.
+- YouTube / Twitch: only the video id (or Twitch clip slug) is kept from user input; every request goes to a canonical
+  URL we build. Twitch channel links (live broadcasts) are refused.
 - The API binds to 127.0.0.1 and has no authentication. Do not expose it.
 
 ## Definition of done

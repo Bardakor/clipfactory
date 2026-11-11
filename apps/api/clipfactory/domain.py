@@ -10,6 +10,7 @@ Profile = Literal["gta6", "gta_rp", "gta_action", "general", "custom"]
 Preset = Literal["fast", "balanced", "max_quality", "custom"]
 SubtitleStyle = Literal["viral", "clean", "gaming"]
 Layout = Literal["auto", "full", "crop", "split", "dynamic", "manual"]
+FacecamPosition = Literal["top", "bottom"]
 AITask = Literal[
     "transcript_analysis", "vision_image", "vision_video", "ranking", "critique", "social_caption"
 ]
@@ -84,6 +85,7 @@ class ProjectSettings(BaseModel):
     subtitle_options: SubtitleOptions = SubtitleOptions()
     burn_subtitles: bool = True
     layout: Layout = "auto"
+    facecam_position: FacecamPosition = "top"  # where the streamer goes in the split layout
     width: int = 1080
     height: int = 1920
     fps: Literal[30, 60] = 30

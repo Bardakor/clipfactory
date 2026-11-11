@@ -17,7 +17,7 @@ from starlette.background import BackgroundTask
 from clipfactory.api.serializers import clip_out, job_out
 from clipfactory.config import get_settings
 from clipfactory.db import get_session
-from clipfactory.domain import REJECTION_REASONS, Caption, Layout, Rect, SubtitleOptions, SubtitleStyle
+from clipfactory.domain import REJECTION_REASONS, Caption, FacecamPosition, Layout, Rect, SubtitleOptions, SubtitleStyle
 from clipfactory.errors import Conflict, NotFound, ValidationFailed
 from clipfactory.models import Candidate, Clip, Feedback, Job, MediaAsset, Project
 from clipfactory.pipeline.runner import create_job
@@ -80,6 +80,7 @@ class ClipPatch(BaseModel):
     end_ms: int | None = Field(default=None, ge=0)
     layout: Layout | None = None
     manual_crop: Rect | None = None
+    facecam_position: FacecamPosition | None = None
     subtitle_style: SubtitleStyle | None = None
     subtitle_options: SubtitleOptions | None = None
     caption_edits: dict[int, str] | None = None  # page index → new text
@@ -113,6 +114,9 @@ def patch_clip(clip_id: str, body: ClipPatch, s: Session = Depends(get_session))
         clip.layout, visual_change = body.layout, True
     if body.manual_crop is not None:
         clip.layout_params = {**(clip.layout_params or {}), "manual": body.manual_crop.model_dump()}
+        visual_change = True
+    if body.facecam_position is not None and body.facecam_position != (clip.layout_params or {}).get("facecam_position"):
+        clip.layout_params = {**(clip.layout_params or {}), "facecam_position": body.facecam_position}
         visual_change = True
     if body.subtitle_style is not None and body.subtitle_style != clip.subtitle_style:
         clip.subtitle_style, visual_change = body.subtitle_style, True

@@ -61,13 +61,13 @@ async def upload_source(request: Request, filename: str, s: Session = Depends(ge
     return {"source": source_out(s, final), "duplicate": final.id != source.id}
 
 
-class YouTubeInspect(BaseModel):
+class RemoteInspect(BaseModel):
     url: str = Field(max_length=300)
 
 
-@router.post("/sources/youtube/inspect")
-def inspect_youtube(body: YouTubeInspect) -> dict:
-    return ingest.inspect_youtube(body.url).model_dump()
+@router.post("/sources/url/inspect")
+def inspect_remote(body: RemoteInspect) -> dict:
+    return ingest.inspect_remote(body.url).model_dump()
 
 
 @router.get("/sources")
@@ -105,7 +105,7 @@ def delete_source(source_id: str, s: Session = Depends(get_session)) -> dict:
 
 class ProjectCreate(BaseModel):
     source_id: str | None = None
-    youtube_url: str | None = Field(default=None, max_length=300)
+    video_url: str | None = Field(default=None, max_length=300)
     rights_confirmed: bool = False
     name: str | None = Field(default=None, max_length=200)
     settings: ProjectSettings = ProjectSettings()
@@ -118,22 +118,24 @@ def create_project(body: ProjectCreate, s: Session = Depends(get_session)) -> di
         source = s.get(Source, body.source_id)
         if source is None or source.status != "ready":
             raise NotFound("source not found or not ready")
-    elif body.youtube_url:
+    elif body.video_url:
         if not body.rights_confirmed:
             raise ValidationFailed("confirm that you own this video or are authorised to download and reuse it")
-        info = ingest.inspect_youtube(body.youtube_url)
+        info = ingest.inspect_remote(body.video_url)
         if info.is_live:
             raise ValidationFailed("live streams cannot be imported until they have ended")
-        if info.duration_s and info.duration_s > ingest.MAX_YOUTUBE_DURATION_S:
+        if info.duration_s and info.duration_s > ingest.MAX_REMOTE_DURATION_S:
             raise ValidationFailed("this video is longer than the 12 hour import limit")
+        if info.size_bytes and info.size_bytes > settings.clipfactory_max_upload_gb * 1024**3:
+            raise ValidationFailed(f"this video is about {info.size_bytes / 1024**3:.0f} GB, over the {settings.clipfactory_max_upload_gb:g} GB import limit")
         source = s.scalar(select(Source).where(Source.origin_url == info.url, Source.status.in_(("ready", "pending"))))
         if source is None:
-            source = Source(kind="youtube", title=info.title, channel=info.channel, origin_url=info.url, rights_confirmed=True,
+            source = Source(kind=info.kind, title=info.title, channel=info.channel, origin_url=info.url, rights_confirmed=True,
                             duration_ms=info.duration_s * 1000 if info.duration_s else None)  # fmt: skip
             s.add(source)
             s.flush()
     else:
-        raise ValidationFailed("provide either an uploaded source or a YouTube URL")
+        raise ValidationFailed("provide either an uploaded source or a YouTube / Twitch URL")
     project = Project(source_id=source.id, name=(body.name or source.title or "Projet")[:300],
                       settings=body.settings.model_dump(mode="json"), is_test=settings.test_mode)  # fmt: skip
     s.add(project)

@@ -19,7 +19,7 @@ from clipfactory.media import ffmpeg, ingest
 from clipfactory.models import AudioEvent, InferenceUsage, Project, Source, VisualEvent
 from clipfactory.pipeline.common import audio_path, events_dir, load_inputs
 from clipfactory.pipeline.context import JobContext
-from clipfactory.render.layout import detect_facecam
+from clipfactory.render.layout import FACECAM_VERSION, detect_facecam
 from clipfactory.settings_store import with_profile_vocabulary
 from clipfactory.timeutil import clock
 from clipfactory.transcription import service as transcription
@@ -29,12 +29,12 @@ from clipfactory.transcription.providers import build_transcriber
 def stage_import(ctx: JobContext) -> None:
     inputs = load_inputs(ctx)
     if inputs.source_status != "ready":
-        if inputs.source_kind != "youtube" or not inputs.origin_url:
+        if inputs.source_kind not in ("youtube", "twitch") or not inputs.origin_url:
             raise IngestError("the source file is missing; upload it again")
-        video_id = ingest.parse_youtube_url(inputs.origin_url)
+        kind, video_id = ingest.parse_video_url(inputs.origin_url)
         ctx.log(f"téléchargement autorisé de {inputs.origin_url}")
-        path = ingest.download_youtube(
-            video_id, ctx.settings.path("sources"), inputs.source_id,
+        path = ingest.download_remote(
+            kind, video_id, ctx.settings.path("sources"), inputs.source_id,
             max_bytes=int(ctx.settings.clipfactory_max_upload_gb * 1024**3),
             on_progress=lambda f: ctx.progress(0.95 * f, "téléchargement"), should_stop=ctx.should_stop,
         )  # fmt: skip
@@ -164,12 +164,17 @@ def stage_detect_events(ctx: JobContext) -> None:
             counts[kind] = counts.get(kind, 0) + 1
 
     # ── facecam (once per source) ──
-    if inputs.facecam is None:
+    if (inputs.facecam or {}).get("v") != FACECAM_VERSION:
         ctx.progress(0.92, "recherche d'une facecam")
         facecam = detect_facecam(inputs.source_path, inputs.duration_ms, ctx.settings.path("work", f"facecam_{inputs.source_id}"))
         with session_scope() as s:
             s.get(Source, inputs.source_id).facecam = facecam
-        ctx.log("facecam détectée" if facecam.get("found") else "aucune facecam fiable détectée")
+        if facecam.get("found"):
+            rect = facecam["rect"]
+            kind = "fenêtre webcam mesurée" if facecam["window"] == "edges" else "cadre estimé autour du visage, pas de bord net"
+            ctx.log(f"facecam détectée : {kind}, {round(rect['w'] * inputs.width)}×{round(rect['h'] * inputs.height)} px dans la source")
+        else:
+            ctx.log("aucune facecam fiable détectée")
     if counts:
         ctx.metrics(events=counts)
         ctx.log("événements détectés : " + ", ".join(f"{k}={v}" for k, v in sorted(counts.items())))

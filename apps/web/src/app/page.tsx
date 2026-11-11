@@ -56,8 +56,8 @@ export default function DashboardPage() {
             </Link>
           }
         >
-          Collez une URL YouTube ou déposez un fichier : CLIPFACTORY transcrit, repère les meilleurs moments, les classe et produit des clips verticaux
-          sous-titrés.
+          Collez une URL YouTube ou Twitch, ou déposez un fichier : CLIPFACTORY transcrit, repère les meilleurs moments, les classe et produit des clips
+          verticaux sous-titrés.
         </Empty>
       ) : (
         <>

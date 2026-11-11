@@ -2,6 +2,7 @@
 
 export type ApiErrorBody = { code: string; message: string; retryable: boolean; details: Record<string, unknown> };
 
+export type FacecamPosition = "top" | "bottom";
 export type Profile = "gta6" | "gta_rp" | "gta_action" | "general" | "custom";
 export type Preset = "fast" | "balanced" | "max_quality" | "custom";
 export type SubtitleStyle = "viral" | "clean" | "gaming";
@@ -28,6 +29,7 @@ export type ProjectSettings = {
   subtitle_options: SubtitleOptions;
   burn_subtitles: boolean;
   layout: Layout;
+  facecam_position: FacecamPosition;
   width: number;
   height: number;
   fps: 30 | 60;
@@ -37,7 +39,7 @@ export type ProjectSettings = {
 
 export type Source = {
   id: string;
-  kind: "upload" | "youtube";
+  kind: "upload" | "youtube" | "twitch";
   status: string;
   title: string;
   channel: string | null;
@@ -104,7 +106,7 @@ export type Clip = {
   main_event: string;
   justification: string;
   layout: Layout;
-  layout_params: { manual?: { x: number; y: number; w: number; h: number } } | null;
+  layout_params: { manual?: { x: number; y: number; w: number; h: number }; facecam_position?: FacecamPosition } | null;
   resolved_layout: { used: string; reason: string } | null;
   subtitle_style: SubtitleStyle;
   subtitle_options: Partial<SubtitleOptions> | null;
@@ -257,7 +259,8 @@ export type TranscriptResponse = {
   segments: TranscriptSegment[];
 };
 
-export type YouTubeInfo = {
+export type RemoteVideo = {
+  kind: "youtube" | "twitch";
   video_id: string;
   url: string;
   title: string;

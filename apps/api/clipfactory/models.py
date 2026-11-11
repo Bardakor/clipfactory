@@ -38,7 +38,7 @@ class Source(Base):
 
     __tablename__ = "sources"
     id: Mapped[str] = _pk()
-    kind: Mapped[str] = mapped_column(String(16))  # upload | youtube
+    kind: Mapped[str] = mapped_column(String(16))  # upload | youtube | twitch
     status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | ready | failed
     title: Mapped[str] = mapped_column(String(300), default="")
     channel: Mapped[str | None] = mapped_column(String(200))

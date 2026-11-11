@@ -40,6 +40,7 @@ class RenderSpec:
     layout: str
     manual_rect: Rect | None
     facecam: dict | None
+    facecam_position: str
     cuts_ms: list[int]  # scene cuts on the source timeline
     subtitle_style: str
     subtitle_options: dict
@@ -101,7 +102,8 @@ def render_clip(
     saliency = saliency_profile(cut) if spec.layout in ("crop", "dynamic") else None
     layout = resolve_layout(
         spec.layout, src_w=cut_info.width, src_h=cut_info.height, out_w=spec.width, out_h=spec.height,
-        duration_ms=duration_ms, facecam=spec.facecam, manual=spec.manual_rect, saliency=saliency,
+        duration_ms=duration_ms, facecam=spec.facecam, facecam_position=spec.facecam_position, manual=spec.manual_rect,
+        saliency=saliency,
         cuts_ms=[c - spec.start_ms for c in spec.cuts_ms if spec.start_ms < c < spec.end_ms],
     )  # fmt: skip
 

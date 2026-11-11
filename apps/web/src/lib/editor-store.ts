@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { ClipDetail, Layout, SubtitleOptions, SubtitleStyle } from "./types";
+import type { ClipDetail, FacecamPosition, Layout, SubtitleOptions, SubtitleStyle } from "./types";
 
 type Crop = { x: number; y: number; w: number; h: number };
 
@@ -9,6 +9,7 @@ export type EditorDraft = {
   endMs: number;
   layout: Layout;
   crop: Crop;
+  facecamPosition: FacecamPosition | null; // null = the project's choice
   style: SubtitleStyle;
   options: SubtitleOptions;
   captionEdits: Record<number, string>;
@@ -33,6 +34,7 @@ export function draftFromClip(clip: ClipDetail["clip"]): EditorDraft {
     endMs: clip.end_ms,
     layout: clip.layout,
     crop: clip.layout_params?.manual ?? DEFAULT_CROP,
+    facecamPosition: clip.layout_params?.facecam_position ?? null,
     style: clip.subtitle_style,
     options: { ...DEFAULT_OPTIONS, ...(clip.subtitle_options ?? {}) },
     captionEdits: {},
@@ -61,6 +63,7 @@ export function buildPatch(draft: EditorDraft, clip: ClipDetail["clip"]): Record
   }
   if (draft.layout !== clip.layout) patch.layout = draft.layout;
   if (draft.layout === "manual" && JSON.stringify(draft.crop) !== JSON.stringify(clip.layout_params?.manual)) patch.manual_crop = draft.crop;
+  if (draft.facecamPosition && draft.facecamPosition !== clip.layout_params?.facecam_position) patch.facecam_position = draft.facecamPosition;
   if (draft.style !== clip.subtitle_style) patch.subtitle_style = draft.style;
   const savedOptions = { ...DEFAULT_OPTIONS, ...(clip.subtitle_options ?? {}) };
   if (JSON.stringify(draft.options) !== JSON.stringify(savedOptions)) patch.subtitle_options = draft.options;

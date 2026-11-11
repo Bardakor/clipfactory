@@ -15,9 +15,9 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { API_URL, api, mediaUrl } from "@/lib/api";
 import { buildPatch, useEditor } from "@/lib/editor-store";
-import { APPROVAL_LABELS, LAYOUT_LABELS, RENDER_STATUS_LABELS, STAGE_LABELS, STYLE_LABELS, clock, timecode } from "@/lib/format";
+import { APPROVAL_LABELS, FACECAM_POSITION_LABELS, LAYOUT_LABELS, RENDER_STATUS_LABELS, STAGE_LABELS, STYLE_LABELS, clock, timecode } from "@/lib/format";
 import { clipActions, useAction, useClip, useTranscript } from "@/lib/queries";
-import type { ClipDetail, Layout, SubtitleStyle } from "@/lib/types";
+import type { ClipDetail, FacecamPosition, Layout, SubtitleStyle } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const CHECK_LABELS: Record<string, string> = {
@@ -579,16 +579,24 @@ export default function ClipEditorPage() {
               <p className="mt-3 text-[11px] text-muted-foreground">
                 {
                   {
-                    auto: "Garde tout le gameplay visible ; split si une facecam est détectée de façon fiable.",
+                    auto: "Streamer + jeu si une facecam est détectée de façon fiable, sinon gameplay complet.",
                     full: "Gameplay entier sur un fond flouté tiré de la même image.",
                     crop: "Recadre autour de l'action quand sa position est claire, sinon reste centré.",
-                    split: "Facecam en haut, gameplay en dessous.",
+                    split: "Le streamer et le jeu l'un au-dessus de l'autre, en pleine largeur ; le jeu est recadré au centre.",
                     dynamic: "Change de cadrage uniquement aux changements de plan, jamais en continu.",
                     manual: "",
                   }[draft.layout]
                 }
               </p>
             )}
+            {data.source.facecam_found && (draft.layout === "auto" || draft.layout === "split") ? (
+              <Segmented
+                className="mt-4 w-full"
+                value={draft.facecamPosition ?? data.project.settings.facecam_position ?? "top"}
+                onChange={(facecamPosition: FacecamPosition) => draft.set({ facecamPosition })}
+                options={Object.entries(FACECAM_POSITION_LABELS).map(([value, label]) => ({ value: value as FacecamPosition, label }))}
+              />
+            ) : null}
           </Panel>
 
           <Panel title="Transcription de la source">

@@ -114,7 +114,9 @@ export default function ProjectPage() {
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{source.title}</div>
           <div className="mt-0.5 text-xs text-muted-foreground">
-            {source.kind === "youtube" ? `YouTube${source.channel ? ` · ${source.channel}` : ""}` : `Fichier local · ${source.original_filename ?? ""}`}
+            {source.kind === "upload"
+              ? `Fichier local · ${source.original_filename ?? ""}`
+              : `${source.kind === "twitch" ? "Twitch" : "YouTube"}${source.channel ? ` · ${source.channel}` : ""}`}
           </div>
           {source.status === "ready" ? (
             <dl className="tnum mt-3 flex flex-wrap gap-x-7 gap-y-1 font-mono text-[11px] text-muted-foreground">

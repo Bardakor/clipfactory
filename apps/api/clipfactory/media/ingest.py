@@ -1,4 +1,4 @@
-"""Source ingestion: local uploads and authorised YouTube imports."""
+"""Source ingestion: local uploads and authorised YouTube / Twitch imports."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ import shutil
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
 from pydantic import BaseModel
@@ -27,11 +28,19 @@ log = get_logger("ingest")
 ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".m4v"}
 _YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be"}
 _VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
-_THUMB_HOSTS = (".ytimg.com", ".ggpht.com", ".googleusercontent.com")
-MAX_YOUTUBE_DURATION_S = 12 * 3600
+_TWITCH_HOSTS = {"twitch.tv", "www.twitch.tv", "m.twitch.tv", "clips.twitch.tv"}
+_TWITCH_VOD_ID = re.compile(r"^\d{6,12}$")
+_TWITCH_CLIP_SLUG = re.compile(r"^(?!\d+$)[A-Za-z0-9_-]{4,120}$")
+_THUMB_HOSTS = (".ytimg.com", ".ggpht.com", ".googleusercontent.com", ".jtvnw.net", ".twitch.tv")
+MAX_REMOTE_DURATION_S = 12 * 3600
+# Best H.264 stream up to 1080p. Twitch only serves muxed HLS variants, which the last two alternatives match.
+_FORMAT = "bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b"
+
+RemoteKind = Literal["youtube", "twitch"]
 
 
-class YouTubeInfo(BaseModel):
+class RemoteVideo(BaseModel):
+    kind: RemoteKind
     video_id: str
     url: str
     title: str
@@ -39,6 +48,7 @@ class YouTubeInfo(BaseModel):
     duration_s: int | None
     thumbnail_url: str | None
     is_live: bool
+    size_bytes: int | None  # estimate of the download; None when the site does not say
 
 
 def safe_title(name: str) -> str:
@@ -95,8 +105,49 @@ def parse_youtube_url(url: str) -> str:
     return video_id
 
 
-def canonical_youtube_url(video_id: str) -> str:
-    return f"https://www.youtube.com/watch?v={video_id}"
+def parse_twitch_url(url: str) -> str:
+    """Return the numeric id of a Twitch VOD or the slug of a Twitch clip, or raise.
+
+    As for YouTube, only that id is kept. A channel link is refused: it designates a live
+    broadcast, which has no end and is not something this importer records.
+    """
+    try:
+        parsed = urlparse(url.strip())
+    except ValueError as exc:
+        raise ValidationFailed("invalid URL") from exc
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host not in _TWITCH_HOSTS or parsed.username or parsed.port:
+        raise ValidationFailed("only https://twitch.tv video and clip links are supported")
+    parts = [p for p in parsed.path.split("/") if p]
+    if host == "clips.twitch.tv" and len(parts) == 1 and _TWITCH_CLIP_SLUG.match(parts[0]):
+        return parts[0]
+    if host != "clips.twitch.tv":
+        if len(parts) == 2 and parts[0] == "videos" and _TWITCH_VOD_ID.match(parts[1]):
+            return parts[1]
+        if len(parts) == 3 and parts[1] == "clip" and _TWITCH_CLIP_SLUG.match(parts[2]):
+            return parts[2]
+    raise ValidationFailed("paste the link of a Twitch VOD (twitch.tv/videos/…) or clip; a channel or a live broadcast cannot be imported")
+
+
+def parse_video_url(url: str) -> tuple[RemoteKind, str]:
+    """Which supported site a link belongs to, and the video id on it."""
+    try:
+        host = (urlparse(url.strip()).hostname or "").lower()
+    except ValueError as exc:
+        raise ValidationFailed("invalid URL") from exc
+    if host in _TWITCH_HOSTS:
+        return "twitch", parse_twitch_url(url)
+    if host in _YOUTUBE_HOSTS:
+        return "youtube", parse_youtube_url(url)
+    raise ValidationFailed("only YouTube and Twitch links are supported")
+
+
+def canonical_url(kind: RemoteKind, video_id: str) -> str:
+    if kind == "youtube":
+        return f"https://www.youtube.com/watch?v={video_id}"
+    if _TWITCH_VOD_ID.match(video_id):
+        return f"https://www.twitch.tv/videos/{video_id}"
+    return f"https://clips.twitch.tv/{video_id}"
 
 
 def _ytdlp(args: list[str], **kw) -> str:  # noqa: ANN003
@@ -115,31 +166,38 @@ def _ytdlp_message(exc: MediaError) -> str:
     return (lines[-1] if lines else stderr[-300:]).replace("ERROR: ", "").strip() or "yt-dlp failed"
 
 
-def inspect_youtube(url: str) -> YouTubeInfo:
-    video_id = parse_youtube_url(url)
-    canonical = canonical_youtube_url(video_id)
+def inspect_remote(url: str) -> RemoteVideo:
+    kind, video_id = parse_video_url(url)
+    canonical = canonical_url(kind, video_id)
     try:
-        raw = _ytdlp(["--dump-single-json", "--skip-download", canonical], timeout=90)
+        raw = _ytdlp(["--dump-single-json", "--skip-download", "-f", _FORMAT, canonical], timeout=90)
     except MediaError as exc:
-        raise IngestError(f"YouTube refused this video: {_ytdlp_message(exc)}") from exc
+        raise IngestError(f"{'YouTube' if kind == 'youtube' else 'Twitch'} refused this video: {_ytdlp_message(exc)}") from exc
     info = json.loads(raw)
+    duration = int(info["duration"]) if info.get("duration") else None
+    size = info.get("filesize") or info.get("filesize_approx")
+    if not size and duration and info.get("tbr"):  # HLS: no size is announced, only a bitrate in kbit/s
+        size = info["tbr"] * 125 * duration
     thumb = info.get("thumbnail")
     if thumb:
         t = urlparse(thumb)
         if t.scheme != "https" or not (t.hostname or "").endswith(_THUMB_HOSTS):
             thumb = None
-    return YouTubeInfo(
+    return RemoteVideo(
+        kind=kind,
         video_id=video_id,
         url=canonical,
         title=str(info.get("title") or video_id)[:300],
         channel=info.get("channel") or info.get("uploader"),
-        duration_s=int(info["duration"]) if info.get("duration") else None,
+        duration_s=duration,
         thumbnail_url=thumb,
         is_live=bool(info.get("is_live")),
+        size_bytes=int(size) if size else None,
     )
 
 
-def download_youtube(
+def download_remote(
+    kind: RemoteKind,
     video_id: str,
     dst_dir: Path,
     stem: str,
@@ -156,10 +214,9 @@ def download_youtube(
 
     try:
         _ytdlp(
-            ["-f", "bv*[height<=1080][vcodec^=avc1]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/b",
-             "--merge-output-format", "mp4", "--max-filesize", str(max_bytes), "--no-part", "--newline",
-             "--progress-template", "download:cf:%(progress.downloaded_bytes)s/%(progress.total_bytes)s",
-             "-o", str(dst_dir / f"{stem}.%(ext)s"), canonical_youtube_url(video_id)],  # fmt: skip
+            ["-f", _FORMAT, "--merge-output-format", "mp4", "--max-filesize", str(max_bytes), "--no-part", "--newline",
+             "--progress-template", "download:cf:%(progress.downloaded_bytes)s/%(progress.total_bytes,progress.total_bytes_estimate)d",
+             "-o", str(dst_dir / f"{stem}.%(ext)s"), canonical_url(kind, video_id)],  # fmt: skip
             timeout=4 * 3600,
             on_line=parse,
             should_stop=should_stop,
@@ -169,6 +226,9 @@ def download_youtube(
     matches = sorted(dst_dir.glob(f"{stem}.*"))
     if not matches:
         raise IngestError("yt-dlp finished without producing a file (the video may exceed the size limit)")
+    if matches[0].stat().st_size > max_bytes:  # --max-filesize cannot stop a stream whose size is not announced
+        matches[0].unlink()
+        raise IngestError("the downloaded video exceeds the size limit")
     return matches[0]
 
 
