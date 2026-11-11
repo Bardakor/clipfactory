@@ -66,9 +66,7 @@ export function buildPatch(draft: EditorDraft, clip: ClipDetail["clip"]): Record
   if (JSON.stringify(draft.options) !== JSON.stringify(savedOptions)) patch.subtitle_options = draft.options;
   // Caption pages are rebuilt server-side when the trim changes, so page edits only apply to an unchanged trim.
   if (!trimmed) {
-    const edits = Object.fromEntries(
-      Object.entries(draft.captionEdits).filter(([index, text]) => clip.caption_pages[Number(index)]?.text !== text.trim()),
-    );
+    const edits = Object.fromEntries(Object.entries(draft.captionEdits).filter(([index, text]) => clip.caption_pages[Number(index)]?.text !== text.trim()));
     if (Object.keys(edits).length > 0) patch.caption_edits = edits;
   }
   if (draft.title !== clip.title) patch.title = draft.title;

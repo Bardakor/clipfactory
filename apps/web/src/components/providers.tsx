@@ -6,9 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  const [client] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { staleTime: 1000, refetchOnWindowFocus: true, retry: 1 } } }),
-  );
+  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 1000, refetchOnWindowFocus: true, retry: 1 } } }));
   return (
     <QueryClientProvider client={client}>
       <TooltipProvider>{children}</TooltipProvider>

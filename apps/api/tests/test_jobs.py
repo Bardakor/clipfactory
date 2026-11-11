@@ -161,3 +161,21 @@ def test_priority_order(settings, job_id):
         project_id = s.get(Job, job_id).project_id
         urgent = runner.create_job(s, project_id=project_id, kind="render", priority=20, payload={"clip_id": "x", "mode": "preview"}).id
     assert runner.claim_next_job("w") == urgent
+
+
+def test_progress_throttling_resets_for_each_stage(settings, job_id):
+    """Regression: a stage's final report was dropped when the previous stage had also ended at 100 %."""
+    from clipfactory.pipeline.context import JobContext
+    from clipfactory.settings_store import RuntimeSettings
+
+    with session_scope() as s:
+        project_id = s.get(Job, job_id).project_id
+    ctx = JobContext(settings, RuntimeSettings(), job_id, project_id, threading.Event())
+    ctx.begin_stage("render")
+    ctx.progress(1.0, "rendu terminé")
+    ctx.begin_stage("validate")
+    ctx.progress(1.0, "2 export(s) validé(s)")
+    with session_scope() as s:
+        details = {st.name: (st.progress, st.detail) for st in s.get(Job, job_id).stages}
+    assert details["render"] == (1.0, "rendu terminé")
+    assert details["validate"] == (1.0, "2 export(s) validé(s)")

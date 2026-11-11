@@ -16,7 +16,14 @@ export function postText(clip: Clip): string {
   return [social.title ?? clip.title, social.caption ?? "", (social.hashtags ?? []).join(" ")].filter(Boolean).join("\n\n");
 }
 
-function IconButton({ label, onClick, href, disabled, children, tone }: {
+function IconButton({
+  label,
+  onClick,
+  href,
+  disabled,
+  children,
+  tone,
+}: {
   label: string;
   onClick?: () => void;
   href?: string;
@@ -112,7 +119,9 @@ export function ClipCard({ clip, showProject }: { clip: Clip; showProject?: bool
           </div>
         )}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-2.5">
-          <span className="tnum rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur">#{clip.rank} · {seconds(clip.duration_ms)}</span>
+          <span className="tnum rounded bg-black/65 px-1.5 py-0.5 text-[11px] font-medium text-white backdrop-blur">
+            #{clip.rank} · {seconds(clip.duration_ms)}
+          </span>
           {clip.is_test ? <TestBadge /> : null}
         </div>
       </div>
@@ -131,33 +140,64 @@ export function ClipCard({ clip, showProject }: { clip: Clip; showProject?: bool
         <p className="line-clamp-3 text-[13px] leading-relaxed text-muted-foreground">{clip.justification}</p>
 
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
-          <span className="tnum font-mono">{clock(clip.start_ms)} → {clock(clip.end_ms)}</span>
+          <span className="tnum font-mono">
+            {clock(clip.start_ms)} → {clock(clip.end_ms)}
+          </span>
           <span>{STYLE_LABELS[clip.subtitle_style]}</span>
           <span title={clip.resolved_layout?.reason}>{LAYOUT_LABELS[clip.resolved_layout?.used ?? clip.layout] ?? clip.layout}</span>
         </div>
 
         <div className="flex items-center justify-between text-[11px]">
-          <span className={cn("font-medium", clip.render_status === "rendered" ? "text-ok" : clip.render_status === "failed" ? "text-destructive" : clip.render_status === "stale" ? "text-warn" : "text-muted-foreground")}>
+          <span
+            className={cn(
+              "font-medium",
+              clip.render_status === "rendered"
+                ? "text-ok"
+                : clip.render_status === "failed"
+                  ? "text-destructive"
+                  : clip.render_status === "stale"
+                    ? "text-warn"
+                    : "text-muted-foreground",
+            )}
+          >
             {RENDER_STATUS_LABELS[clip.render_status]}
           </span>
-          <span className={cn("font-medium", clip.approval === "approved" ? "text-ok" : clip.approval === "rejected" ? "text-destructive" : "text-muted-foreground")}>
+          <span
+            className={cn(
+              "font-medium",
+              clip.approval === "approved" ? "text-ok" : clip.approval === "rejected" ? "text-destructive" : "text-muted-foreground",
+            )}
+          >
             {APPROVAL_LABELS[clip.approval]}
           </span>
         </div>
 
         <div className="-mx-1.5 -mb-1.5 flex items-center justify-between">
           <div className="flex">
-            <IconButton label="Approuver" tone={clip.approval === "approved" ? "ok" : undefined} onClick={() => feedback.mutate({ decision: clip.approval === "approved" ? "reset" : "accepted" })}>
+            <IconButton
+              label="Approuver"
+              tone={clip.approval === "approved" ? "ok" : undefined}
+              onClick={() => feedback.mutate({ decision: clip.approval === "approved" ? "reset" : "accepted" })}
+            >
               <Check className="size-4" />
             </IconButton>
             <RejectMenu onReject={(reason) => feedback.mutate({ decision: "rejected", rejection_reason: reason })}>
               {(open) => (
-                <IconButton label="Rejeter" tone={clip.approval === "rejected" ? "danger" : undefined} onClick={clip.approval === "rejected" ? () => feedback.mutate({ decision: "reset" }) : open}>
+                <IconButton
+                  label="Rejeter"
+                  tone={clip.approval === "rejected" ? "danger" : undefined}
+                  onClick={clip.approval === "rejected" ? () => feedback.mutate({ decision: "reset" }) : open}
+                >
                   <X className="size-4" />
                 </IconButton>
               )}
             </RejectMenu>
-            <Link href={`/clips/${clip.id}`} title="Modifier" aria-label="Modifier" className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-raised hover:text-foreground">
+            <Link
+              href={`/clips/${clip.id}`}
+              title="Modifier"
+              aria-label="Modifier"
+              className="grid size-8 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-raised hover:text-foreground"
+            >
               <Pencil className="size-4" />
             </Link>
             <IconButton label="Régénérer le rendu" disabled={busy || render.isPending} onClick={() => render.mutate(undefined)}>
@@ -167,7 +207,12 @@ export function ClipCard({ clip, showProject }: { clip: Clip; showProject?: bool
           <div className="flex">
             <IconButton
               label="Copier la légende suggérée"
-              onClick={() => navigator.clipboard.writeText(postText(clip)).then(() => toast.success("Légende copiée"), () => toast.error("Copie impossible"))}
+              onClick={() =>
+                navigator.clipboard.writeText(postText(clip)).then(
+                  () => toast.success("Légende copiée"),
+                  () => toast.error("Copie impossible"),
+                )
+              }
             >
               <Copy className="size-4" />
             </IconButton>

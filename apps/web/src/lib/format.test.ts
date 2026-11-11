@@ -33,9 +33,19 @@ describe("formatting", () => {
 });
 
 const clip = {
-  id: "c1", start_ms: 10_000, end_ms: 30_000, layout: "auto", layout_params: null, subtitle_style: "viral", subtitle_options: {},
-  title: "Titre", social: { caption: "Légende", hashtags: ["#gta5"] },
-  caption_pages: [{ index: 0, text: "un deux", start_ms: 0, end_ms: 800, measured: true }, { index: 1, text: "trois", start_ms: 900, end_ms: 1400, measured: true }],
+  id: "c1",
+  start_ms: 10_000,
+  end_ms: 30_000,
+  layout: "auto",
+  layout_params: null,
+  subtitle_style: "viral",
+  subtitle_options: {},
+  title: "Titre",
+  social: { caption: "Légende", hashtags: ["#gta5"] },
+  caption_pages: [
+    { index: 0, text: "un deux", start_ms: 0, end_ms: 800, measured: true },
+    { index: 1, text: "trois", start_ms: 900, end_ms: 1400, measured: true },
+  ],
 } as unknown as ClipDetail["clip"];
 
 describe("editor patch", () => {

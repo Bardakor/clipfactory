@@ -53,15 +53,24 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 const RUBRIC_LABELS: Record<string, string> = {
-  hook: "Accroche", comprehensibility: "Clarté", surprise: "Surprise", humor: "Humour", emotion: "Émotion",
-  narrative: "Récit", pacing: "Rythme", payoff: "Chute", originality: "Originalité",
+  hook: "Accroche",
+  comprehensibility: "Clarté",
+  surprise: "Surprise",
+  humor: "Humour",
+  emotion: "Émotion",
+  narrative: "Récit",
+  pacing: "Rythme",
+  payoff: "Chute",
+  originality: "Originalité",
 };
 
 function toForm(s: RuntimeSettings): FormValues {
   return {
     ...s,
     vocabulary_text: s.vocabulary.join(", "),
-    corrections_text: Object.entries(s.corrections).map(([from, to]) => `${from} => ${to}`).join("\n"),
+    corrections_text: Object.entries(s.corrections)
+      .map(([from, to]) => `${from} => ${to}`)
+      .join("\n"),
     export_dir: s.export_dir ?? "",
   };
 }
@@ -78,7 +87,13 @@ function Card({ title, description, children }: { title: string; description?: s
   );
 }
 
-function ModelRouting({ models, preset, custom, required, onChange }: {
+function ModelRouting({
+  models,
+  preset,
+  custom,
+  required,
+  onChange,
+}: {
   models: ModelsResponse;
   preset: Preset;
   custom: Record<string, string>;
@@ -90,7 +105,7 @@ function ModelRouting({ models, preset, custom, required, onChange }: {
     <div className="divide-y divide-border">
       {models.tasks.map((task) => {
         const chain = models.routing[preset]?.[task] ?? [];
-        const active = byId.get(custom[task] && byId.get(custom[task])?.input_modalities.includes(required[task]) ? custom[task] : chain[0] ?? "");
+        const active = byId.get(custom[task] && byId.get(custom[task])?.input_modalities.includes(required[task]) ? custom[task] : (chain[0] ?? ""));
         const capable = models.models.filter((m) => m.input_modalities.includes(required[task]));
         return (
           <div key={task} className="grid grid-cols-[11rem_minmax(0,1fr)_9rem] items-center gap-4 py-2.5">
@@ -99,8 +114,15 @@ function ModelRouting({ models, preset, custom, required, onChange }: {
               <div className="text-[10px] tracking-wide text-muted-foreground uppercase">entrée {required[task]}</div>
             </div>
             <select className="field-select font-mono text-xs" value={custom[task] ?? ""} onChange={(e) => onChange(task, e.target.value)}>
-              <option value="">Préréglage : {chain[0] ?? "aucun modèle compatible"}{chain.length > 1 ? `  (+${chain.length - 1} repli)` : ""}</option>
-              {capable.map((m) => <option key={m.id} value={m.id}>{m.id}</option>)}
+              <option value="">
+                Préréglage : {chain[0] ?? "aucun modèle compatible"}
+                {chain.length > 1 ? `  (+${chain.length - 1} repli)` : ""}
+              </option>
+              {capable.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.id}
+                </option>
+              ))}
             </select>
             <div className="tnum text-right font-mono text-[11px] text-muted-foreground" title="Prix catalogue par million de jetons : entrée / sortie">
               {active ? `${active.prompt_usd_per_mtok.toFixed(2)} / ${active.completion_usd_per_mtok.toFixed(2)} $` : "—"}
@@ -123,12 +145,24 @@ export default function SettingsPage() {
   const [profile, setProfile] = useState("gta_rp");
 
   const saved = payload.data?.settings;
-  const form = useForm<FormValues>({ resolver: zodResolver(schema) as never, values: saved ? toForm(saved) : undefined, resetOptions: { keepDirtyValues: true } });
+  const form = useForm<FormValues>({
+    resolver: zodResolver(schema) as never,
+    values: saved ? toForm(saved) : undefined,
+    resetOptions: { keepDirtyValues: true },
+  });
   const { register, control, watch, handleSubmit, formState } = form;
 
-  const save = useAction((body: RuntimeSettings) => api("/settings", { method: "PUT", body }), { success: "Paramètres enregistrés", onDone: () => { setCustomModels(null); setWeights(null); } });
+  const save = useAction((body: RuntimeSettings) => api("/settings", { method: "PUT", body }), {
+    success: "Paramètres enregistrés",
+    onDone: () => {
+      setCustomModels(null);
+      setWeights(null);
+    },
+  });
   const refresh = useAction(() => api("/models?refresh=true"), { success: "Catalogue OpenRouter rafraîchi" });
-  const cleanup = useAction((targets: string[]) => api<{ freed_bytes: number }>("/storage/cleanup", { method: "POST", body: { targets } }), { success: "Espace libéré" });
+  const cleanup = useAction((targets: string[]) => api<{ freed_bytes: number }>("/storage/cleanup", { method: "POST", body: { targets } }), {
+    success: "Espace libéré",
+  });
 
   if (payload.isLoading) return <Skeleton className="h-96 rounded-xl" />;
   if (!saved || !payload.data) return <Empty title="Impossible de charger les paramètres">{payload.error?.message}</Empty>;
@@ -142,12 +176,18 @@ export default function SettingsPage() {
   const submit = handleSubmit((values) => {
     const { vocabulary_text, corrections_text, export_dir, ...rest } = values;
     const corrections = Object.fromEntries(
-      corrections_text.split("\n").map((line) => line.split("=>").map((part) => part.trim())).filter((parts) => parts.length === 2 && parts[0] && parts[1]),
+      corrections_text
+        .split("\n")
+        .map((line) => line.split("=>").map((part) => part.trim()))
+        .filter((parts) => parts.length === 2 && parts[0] && parts[1]),
     );
     save.mutate({
       ...saved,
       ...rest,
-      vocabulary: vocabulary_text.split(",").map((w) => w.trim()).filter(Boolean),
+      vocabulary: vocabulary_text
+        .split(",")
+        .map((w) => w.trim())
+        .filter(Boolean),
       corrections,
       export_dir: export_dir.trim() || null,
       custom_models: Object.fromEntries(Object.entries(routed).filter(([, model]) => model)),
@@ -162,9 +202,15 @@ export default function SettingsPage() {
       <PageHeader
         title="Paramètres"
         description="Réglages appliqués aux prochains traitements. Les secrets restent dans le fichier .env du serveur."
-        actions={<Button type="submit" disabled={save.isPending || (!formState.isDirty && !pendingExtra)}>Enregistrer</Button>}
+        actions={
+          <Button type="submit" disabled={save.isPending || (!formState.isDirty && !pendingExtra)}>
+            Enregistrer
+          </Button>
+        }
       />
-      {Object.keys(formState.errors).length > 0 ? <p className="mb-4 text-xs text-destructive">Certaines valeurs sont hors limites : {Object.keys(formState.errors).join(", ")}</p> : null}
+      {Object.keys(formState.errors).length > 0 ? (
+        <p className="mb-4 text-xs text-destructive">Certaines valeurs sont hors limites : {Object.keys(formState.errors).join(", ")}</p>
+      ) : null}
 
       <div className="space-y-5">
         <Card title="Clé OpenRouter" description="Seul identifiant externe requis. Elle n'est jamais envoyée au navigateur ni écrite dans les journaux.">
@@ -174,44 +220,89 @@ export default function SettingsPage() {
               <span>Clé détectée côté serveur.</span>
             ) : (
               <span>
-                Aucune clé. Ajoutez <code className="rounded bg-raised px-1.5 py-0.5 font-mono text-xs">OPENROUTER_API_KEY=…</code> dans le fichier <code className="rounded bg-raised px-1.5 py-0.5 font-mono text-xs">.env</code> à la racine du dépôt, puis relancez l&apos;API et le worker.
-                <span className="mt-1 block text-xs text-muted-foreground">Sans clé, le pipeline fonctionne mais le classement est uniquement heuristique, et signalé comme tel.</span>
+                Aucune clé. Ajoutez <code className="rounded bg-raised px-1.5 py-0.5 font-mono text-xs">OPENROUTER_API_KEY=…</code> dans le fichier{" "}
+                <code className="rounded bg-raised px-1.5 py-0.5 font-mono text-xs">.env</code> à la racine du dépôt, puis relancez l&apos;API et le worker.
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Sans clé, le pipeline fonctionne mais le classement est uniquement heuristique, et signalé comme tel.
+                </span>
               </span>
             )}
           </div>
         </Card>
 
-        <Card title="Routage des modèles" description="Chaque tâche a son modèle. Les préférences sont vérifiées contre le catalogue OpenRouter : un modèle absent ou sans la modalité requise est ignoré.">
+        <Card
+          title="Routage des modèles"
+          description="Chaque tâche a son modèle. Les préférences sont vérifiées contre le catalogue OpenRouter : un modèle absent ou sans la modalité requise est ignoré."
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Controller control={control} name="preset" render={({ field }) => (
-              <Segmented value={field.value ?? saved.preset} onChange={field.onChange} options={Object.entries(PRESET_LABELS).map(([value, label]) => ({ value: value as Preset, label }))} />
-            )} />
+            <Controller
+              control={control}
+              name="preset"
+              render={({ field }) => (
+                <Segmented
+                  value={field.value ?? saved.preset}
+                  onChange={field.onChange}
+                  options={Object.entries(PRESET_LABELS).map(([value, label]) => ({ value: value as Preset, label }))}
+                />
+              )}
+            />
             <Button type="button" variant="ghost" size="sm" disabled={refresh.isPending} onClick={() => refresh.mutate(undefined)}>
               <RefreshCw className={`size-3.5 ${refresh.isPending ? "animate-spin" : ""}`} /> Rafraîchir le catalogue
-              {models.data?.fetched_at ? <span className="text-muted-foreground">· {new Date(models.data.fetched_at * 1000).toLocaleDateString("fr-FR")}</span> : null}
+              {models.data?.fetched_at ? (
+                <span className="text-muted-foreground">· {new Date(models.data.fetched_at * 1000).toLocaleDateString("fr-FR")}</span>
+              ) : null}
             </Button>
           </div>
           {models.data && models.data.models.length > 0 ? (
-            <ModelRouting models={models.data} preset={preset} custom={routed} required={payload.data.required_modality} onChange={(task, model) => setCustomModels({ ...routed, [task]: model })} />
+            <ModelRouting
+              models={models.data}
+              preset={preset}
+              custom={routed}
+              required={payload.data.required_modality}
+              onChange={(task, model) => setCustomModels({ ...routed, [task]: model })}
+            />
           ) : (
-            <p className="text-sm text-muted-foreground">{models.isLoading ? "Chargement du catalogue…" : "Catalogue OpenRouter indisponible (hors ligne ?). Les préférences du préréglage seront utilisées telles quelles."}</p>
+            <p className="text-sm text-muted-foreground">
+              {models.isLoading
+                ? "Chargement du catalogue…"
+                : "Catalogue OpenRouter indisponible (hors ligne ?). Les préférences du préréglage seront utilisées telles quelles."}
+            </p>
           )}
           <div className="flex items-center justify-between">
             <div>
               <div className="text-xs font-medium">Envoyer de courts extraits vidéo quand le modèle les accepte</div>
               <div className="text-[11px] text-muted-foreground">Uniquement en « Qualité max ». Sinon, ou en cas d&apos;échec : images clés horodatées.</div>
             </div>
-            <Controller control={control} name="use_video_input" render={({ field }) => <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />} />
+            <Controller
+              control={control}
+              name="use_video_input"
+              render={({ field }) => <Switch checked={field.value ?? false} onCheckedChange={field.onChange} />}
+            />
           </div>
         </Card>
 
         <Card title="Transcription" description="MLX Whisper tourne en local sur Apple Silicon, sans coût. OpenRouter sert de solution de repli.">
-          <Controller control={control} name="transcription_provider" render={({ field }) => (
-            <Segmented value={field.value ?? "mlx"} onChange={field.onChange} options={[{ value: "mlx", label: "MLX Whisper (local)" }, { value: "openrouter", label: "OpenRouter" }]} />
-          )} />
+          <Controller
+            control={control}
+            name="transcription_provider"
+            render={({ field }) => (
+              <Segmented
+                value={field.value ?? "mlx"}
+                onChange={field.onChange}
+                options={[
+                  { value: "mlx", label: "MLX Whisper (local)" },
+                  { value: "openrouter", label: "OpenRouter" },
+                ]}
+              />
+            )}
+          />
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Modèle MLX"><Input className="border-0 bg-raised font-mono text-xs" {...register("mlx_model")} /></Field>
-            <Field label="Modèle OpenRouter"><Input className="border-0 bg-raised font-mono text-xs" {...register("openrouter_stt_model")} /></Field>
+            <Field label="Modèle MLX">
+              <Input className="border-0 bg-raised font-mono text-xs" {...register("mlx_model")} />
+            </Field>
+            <Field label="Modèle OpenRouter">
+              <Input className="border-0 bg-raised font-mono text-xs" {...register("openrouter_stt_model")} />
+            </Field>
           </div>
           <Field label="Vocabulaire gaming" hint="séparé par des virgules">
             <Textarea rows={2} className="border-0 bg-raised text-[13px]" {...register("vocabulary_text")} />
@@ -221,73 +312,159 @@ export default function SettingsPage() {
           </Field>
         </Card>
 
-        <Card title="Détecteur audio" description="Les événements sont mesurés par contraste avec les 30 secondes précédentes : un volume élevé et constant ne compte pas.">
+        <Card
+          title="Détecteur audio"
+          description="Les événements sont mesurés par contraste avec les 30 secondes précédentes : un volume élevé et constant ne compte pas."
+        >
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-            <Field label="Seuil de silence (dB)"><Input type="number" step="1" className="border-0 bg-raised" {...number("audio.silence_db")} /></Field>
-            <Field label="Silence minimal (ms)"><Input type="number" className="border-0 bg-raised" {...number("audio.min_silence_ms")} /></Field>
-            <Field label="Sensibilité (z-score)"><Input type="number" step="0.1" className="border-0 bg-raised" {...number("audio.peak_z")} /></Field>
-            <Field label="Regroupement (ms)"><Input type="number" className="border-0 bg-raised" {...number("audio.group_gap_ms")} /></Field>
+            <Field label="Seuil de silence (dB)">
+              <Input type="number" step="1" className="border-0 bg-raised" {...number("audio.silence_db")} />
+            </Field>
+            <Field label="Silence minimal (ms)">
+              <Input type="number" className="border-0 bg-raised" {...number("audio.min_silence_ms")} />
+            </Field>
+            <Field label="Sensibilité (z-score)">
+              <Input type="number" step="0.1" className="border-0 bg-raised" {...number("audio.peak_z")} />
+            </Field>
+            <Field label="Regroupement (ms)">
+              <Input type="number" className="border-0 bg-raised" {...number("audio.group_gap_ms")} />
+            </Field>
           </div>
         </Card>
 
-        <Card title="Performance et budget" description="Les rendus Remotion consomment plusieurs Go : gardez un seul rendu simultané sur une machine à mémoire unifiée modeste.">
+        <Card
+          title="Performance et budget"
+          description="Les rendus Remotion consomment plusieurs Go : gardez un seul rendu simultané sur une machine à mémoire unifiée modeste."
+        >
           <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
-            <Field label="Requêtes IA simultanées"><Input type="number" className="border-0 bg-raised" {...number("llm_concurrency")} /></Field>
-            <Field label="Délai par requête (s)"><Input type="number" className="border-0 bg-raised" {...number("llm_timeout_s")} /></Field>
-            <Field label="Nouvelles tentatives"><Input type="number" className="border-0 bg-raised" {...number("llm_max_retries")} /></Field>
-            <Field label="Rendus simultanés"><Input type="number" className="border-0 bg-raised" {...number("render_concurrency")} /></Field>
-            <Field label="Onglets Remotion" hint="vide = automatique"><Input type="number" className="border-0 bg-raised" {...register("remotion_concurrency")} /></Field>
+            <Field label="Requêtes IA simultanées">
+              <Input type="number" className="border-0 bg-raised" {...number("llm_concurrency")} />
+            </Field>
+            <Field label="Délai par requête (s)">
+              <Input type="number" className="border-0 bg-raised" {...number("llm_timeout_s")} />
+            </Field>
+            <Field label="Nouvelles tentatives">
+              <Input type="number" className="border-0 bg-raised" {...number("llm_max_retries")} />
+            </Field>
+            <Field label="Rendus simultanés">
+              <Input type="number" className="border-0 bg-raised" {...number("render_concurrency")} />
+            </Field>
+            <Field label="Onglets Remotion" hint="vide = automatique">
+              <Input type="number" className="border-0 bg-raised" {...register("remotion_concurrency")} />
+            </Field>
             <div />
-            <Field label="Alerte de coût par job ($)"><Input type="number" step="0.1" className="border-0 bg-raised" {...number("cost_warning_usd")} /></Field>
-            <Field label="Plafond dur par job ($)" hint="vide = aucun"><Input type="number" step="0.1" className="border-0 bg-raised" {...register("cost_limit_usd")} /></Field>
+            <Field label="Alerte de coût par job ($)">
+              <Input type="number" step="0.1" className="border-0 bg-raised" {...number("cost_warning_usd")} />
+            </Field>
+            <Field label="Plafond dur par job ($)" hint="vide = aucun">
+              <Input type="number" step="0.1" className="border-0 bg-raised" {...register("cost_limit_usd")} />
+            </Field>
           </div>
         </Card>
 
         <Card title="Sous-titres par défaut" description="Style proposé à la création d'un projet. Chaque clip reste modifiable dans l'éditeur.">
-          <Controller control={control} name="subtitle_style" render={({ field }) => (
-            <Segmented value={field.value ?? "viral"} onChange={field.onChange} options={Object.entries(STYLE_LABELS).map(([value, label]) => ({ value: value as SubtitleStyle, label }))} />
-          )} />
+          <Controller
+            control={control}
+            name="subtitle_style"
+            render={({ field }) => (
+              <Segmented
+                value={field.value ?? "viral"}
+                onChange={field.onChange}
+                options={Object.entries(STYLE_LABELS).map(([value, label]) => ({ value: value as SubtitleStyle, label }))}
+              />
+            )}
+          />
         </Card>
 
-        <Card title="Poids des profils" description="Importance relative de chaque critère de la grille éditoriale. Les poids sont normalisés : seul leur rapport compte.">
+        <Card
+          title="Poids des profils"
+          description="Importance relative de chaque critère de la grille éditoriale. Les poids sont normalisés : seul leur rapport compte."
+        >
           <Segmented value={profile} onChange={setProfile} options={Object.entries(PROFILE_LABELS).map(([value, label]) => ({ value, label }))} />
           <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2 xl:grid-cols-3">
             {Object.entries(RUBRIC_LABELS).map(([key, label]) => {
               const value = profileWeights[profile]?.[key] ?? defaults[key] ?? 1;
               return (
-                <Field key={key} label={label} hint={<span className="tnum">{value.toFixed(1)}{profileWeights[profile]?.[key] !== undefined ? " · modifié" : ""}</span>}>
-                  <input type="range" className="field-range" min={0} max={3} step={0.1} value={value}
-                    onChange={(e) => setWeights({ ...profileWeights, [profile]: { ...(profileWeights[profile] ?? {}), [key]: Number(e.target.value) } })} />
+                <Field
+                  key={key}
+                  label={label}
+                  hint={
+                    <span className="tnum">
+                      {value.toFixed(1)}
+                      {profileWeights[profile]?.[key] !== undefined ? " · modifié" : ""}
+                    </span>
+                  }
+                >
+                  <input
+                    type="range"
+                    className="field-range"
+                    min={0}
+                    max={3}
+                    step={0.1}
+                    value={value}
+                    onChange={(e) => setWeights({ ...profileWeights, [profile]: { ...(profileWeights[profile] ?? {}), [key]: Number(e.target.value) } })}
+                  />
                 </Field>
               );
             })}
           </div>
           {profileWeights[profile] ? (
-            <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => { const next = { ...profileWeights }; delete next[profile]; setWeights(next); }}>
+            <button
+              type="button"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                const next = { ...profileWeights };
+                delete next[profile];
+                setWeights(next);
+              }}
+            >
               Rétablir les poids par défaut de ce profil
             </button>
           ) : null}
         </Card>
 
-        <Card title="Stockage" description="Les vidéos sources et les exports ne sont jamais supprimés ici : utilisez la suppression d'une source ou d'un projet.">
+        <Card
+          title="Stockage"
+          description="Les vidéos sources et les exports ne sont jamais supprimés ici : utilisez la suppression d'une source ou d'un projet."
+        >
           {storage.data ? (
             <>
               <div className="font-mono text-[11px] text-muted-foreground">{storage.data.data_dir}</div>
               <dl className="grid grid-cols-2 gap-x-8 gap-y-1.5 text-[13px] sm:grid-cols-4">
                 {Object.entries(storage.data.bytes).map(([name, size]) => (
-                  <div key={name} className="flex justify-between gap-3"><dt className="text-muted-foreground">{name}</dt><dd className="tnum">{bytes(size)}</dd></div>
+                  <div key={name} className="flex justify-between gap-3">
+                    <dt className="text-muted-foreground">{name}</dt>
+                    <dd className="tnum">{bytes(size)}</dd>
+                  </div>
                 ))}
               </dl>
               <div className="flex flex-wrap gap-2">
-                {([["work", "Fichiers de travail"], ["previews", "Aperçus"], ["frames", "Images clés"], ["llm", "Réponses IA en cache"]] as const).map(([target, label]) => (
-                  <Button key={target} type="button" variant="secondary" size="sm" disabled={cleanup.isPending}
-                    onClick={() => { if (target !== "llm" || window.confirm("Vider ce cache obligera à repayer les mêmes analyses. Continuer ?")) cleanup.mutate([target]); }}>
+                {(
+                  [
+                    ["work", "Fichiers de travail"],
+                    ["previews", "Aperçus"],
+                    ["frames", "Images clés"],
+                    ["llm", "Réponses IA en cache"],
+                  ] as const
+                ).map(([target, label]) => (
+                  <Button
+                    key={target}
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    disabled={cleanup.isPending}
+                    onClick={() => {
+                      if (target !== "llm" || window.confirm("Vider ce cache obligera à repayer les mêmes analyses. Continuer ?")) cleanup.mutate([target]);
+                    }}
+                  >
                     Vider : {label}
                   </Button>
                 ))}
               </div>
             </>
-          ) : <Skeleton className="h-16" />}
+          ) : (
+            <Skeleton className="h-16" />
+          )}
           <Field label="Copier aussi les exports finaux vers" hint="chemin absolu, facultatif">
             <Input placeholder="/Users/moi/Movies/Clips" className="border-0 bg-raised font-mono text-xs" {...register("export_dir")} />
           </Field>
@@ -299,7 +476,11 @@ export default function SettingsPage() {
             <div>
               <div>Désactivée</div>
               <p className="mt-1 text-xs text-muted-foreground">{tiktok.data?.reason}</p>
-              <ul className="mt-2 list-inside list-disc text-xs text-muted-foreground">{tiktok.data?.requirements.map((r) => <li key={r}>{r}</li>)}</ul>
+              <ul className="mt-2 list-inside list-disc text-xs text-muted-foreground">
+                {tiktok.data?.requirements.map((r) => (
+                  <li key={r}>{r}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </Card>

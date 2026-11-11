@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "./scripts/dev.sh",
     "check": "./scripts/check-deps.sh",
-    "test": "./scripts/test.sh"
+    "test": "./scripts/test.sh",
+    "format": "prettier --write \"apps/{web,renderer}/{src,e2e}/**/*.{ts,tsx,css}\" \"apps/renderer/*.mjs\" \"apps/renderer/scripts/*.mjs\" \"apps/web/*.{ts,mts,mjs}\"",
+    "format:check": "prettier --check \"apps/{web,renderer}/{src,e2e}/**/*.{ts,tsx,css}\" \"apps/renderer/*.mjs\" \"apps/renderer/scripts/*.mjs\" \"apps/web/*.{ts,mts,mjs}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10"
   }
 }

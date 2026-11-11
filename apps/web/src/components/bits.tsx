@@ -51,7 +51,10 @@ export function TestBadge() {
 export function Score({ value, basis, size = "md" }: { value: number; basis: string; size?: "md" | "lg" }) {
   const tone = basis === "test" ? "text-warn" : value >= 75 ? "text-primary" : value >= 55 ? "text-foreground" : "text-muted-foreground";
   return (
-    <div className={cn("flex", size === "lg" ? "flex-col gap-0.5" : "items-baseline gap-1.5")} title="Score éditorial (0–100) : estimation du potentiel en format court, pas une probabilité de viralité.">
+    <div
+      className={cn("flex", size === "lg" ? "flex-col gap-0.5" : "items-baseline gap-1.5")}
+      title="Score éditorial (0–100) : estimation du potentiel en format court, pas une probabilité de viralité."
+    >
       <span className={cn("tnum font-semibold tracking-tight", tone, size === "lg" ? "text-4xl" : "text-xl")}>{Math.round(value)}</span>
       <span className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">{BASIS_LABELS[basis] ?? basis}</span>
     </div>
@@ -62,7 +65,19 @@ export function Score({ value, basis, size = "md" }: { value: number; basis: str
  * A labelled control. Single inputs are wrapped in a <label>; a group of buttons (``group``) gets a
  * named group instead, so each button keeps its own accessible name.
  */
-export function Field({ label, hint, children, className, group }: { label: string; hint?: React.ReactNode; children: React.ReactNode; className?: string; group?: boolean }) {
+export function Field({
+  label,
+  hint,
+  children,
+  className,
+  group,
+}: {
+  label: string;
+  hint?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+  group?: boolean;
+}) {
   const heading = (
     <span className="mb-1.5 flex items-baseline justify-between gap-3">
       <span className="text-xs font-medium text-foreground/85">{label}</span>
@@ -148,7 +163,10 @@ export function Bar({ value, tone = "primary" }: { value: number | null; tone?: 
       {value === null ? (
         <div className="h-full w-1/3 animate-pulse rounded-full bg-info/60" />
       ) : (
-        <div className={cn("h-full rounded-full transition-[width] duration-500", tone === "info" ? "bg-info" : "bg-primary")} style={{ width: `${Math.round(value * 100)}%` }} />
+        <div
+          className={cn("h-full rounded-full transition-[width] duration-500", tone === "info" ? "bg-info" : "bg-primary")}
+          style={{ width: `${Math.round(value * 100)}%` }}
+        />
       )}
     </div>
   );

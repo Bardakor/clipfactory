@@ -21,11 +21,35 @@ function useNow(active: boolean): number {
 
 function StageIcon({ status }: { status: Stage["status"] }) {
   const base = "grid size-5 shrink-0 place-items-center rounded-full";
-  if (status === "succeeded") return <span className={cn(base, "bg-ok/15 text-ok")}><Check className="size-3" strokeWidth={3} /></span>;
-  if (status === "running") return <span className={cn(base, "bg-info/15 text-info")}><Loader2 className="size-3 animate-spin" strokeWidth={3} /></span>;
-  if (status === "failed") return <span className={cn(base, "bg-destructive/15 text-destructive")}><X className="size-3" strokeWidth={3} /></span>;
-  if (status === "cancelled") return <span className={cn(base, "bg-raised text-muted-foreground")}><Minus className="size-3" strokeWidth={3} /></span>;
-  return <span className={cn(base, "text-muted-foreground/40")}><Circle className="size-2 fill-current" /></span>;
+  if (status === "succeeded")
+    return (
+      <span className={cn(base, "bg-ok/15 text-ok")}>
+        <Check className="size-3" strokeWidth={3} />
+      </span>
+    );
+  if (status === "running")
+    return (
+      <span className={cn(base, "bg-info/15 text-info")}>
+        <Loader2 className="size-3 animate-spin" strokeWidth={3} />
+      </span>
+    );
+  if (status === "failed")
+    return (
+      <span className={cn(base, "bg-destructive/15 text-destructive")}>
+        <X className="size-3" strokeWidth={3} />
+      </span>
+    );
+  if (status === "cancelled")
+    return (
+      <span className={cn(base, "bg-raised text-muted-foreground")}>
+        <Minus className="size-3" strokeWidth={3} />
+      </span>
+    );
+  return (
+    <span className={cn(base, "text-muted-foreground/40")}>
+      <Circle className="size-2 fill-current" />
+    </span>
+  );
 }
 
 function StageRow({ stage, now }: { stage: Stage; now: number }) {
@@ -36,7 +60,9 @@ function StageRow({ stage, now }: { stage: Stage; now: number }) {
       <StageIcon status={stage.status} />
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
-          <span className={cn("text-sm", stage.status === "pending" ? "text-muted-foreground" : "text-foreground")}>{STAGE_LABELS[stage.name] ?? stage.name}</span>
+          <span className={cn("text-sm", stage.status === "pending" ? "text-muted-foreground" : "text-foreground")}>
+            {STAGE_LABELS[stage.name] ?? stage.name}
+          </span>
           {stage.cache_hit ? <span className="text-[10px] tracking-wide text-muted-foreground uppercase">cache</span> : null}
         </div>
         {running ? (
@@ -76,9 +102,18 @@ export function PipelineView({ job, clipCount }: { job: Job; clipCount: number }
         <div className="flex items-center gap-6">
           <JobStatus status={job.status} />
           <dl className="flex gap-6 text-xs">
-            <div><dt className="text-muted-foreground">Durée</dt><dd className="tnum mt-0.5 font-mono">{total !== null ? seconds(total) : "—"}</dd></div>
-            <div><dt className="text-muted-foreground">Candidats</dt><dd className="tnum mt-0.5 font-mono">{candidates ?? "—"}</dd></div>
-            <div><dt className="text-muted-foreground">Clips</dt><dd className="tnum mt-0.5 font-mono">{clipCount}</dd></div>
+            <div>
+              <dt className="text-muted-foreground">Durée</dt>
+              <dd className="tnum mt-0.5 font-mono">{total !== null ? seconds(total) : "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Candidats</dt>
+              <dd className="tnum mt-0.5 font-mono">{candidates ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Clips</dt>
+              <dd className="tnum mt-0.5 font-mono">{clipCount}</dd>
+            </div>
             <div title="Coût réel rapporté par OpenRouter. L'estimation (jetons × prix catalogue) est indiquée à part.">
               <dt className="text-muted-foreground">Coût réel</dt>
               <dd className="tnum mt-0.5 font-mono">
@@ -94,7 +129,9 @@ export function PipelineView({ job, clipCount }: { job: Job; clipCount: number }
             </Button>
           ) : null}
           {job.status === "failed" || job.status === "cancelled" ? (
-            <Button size="sm" disabled={retry.isPending} onClick={() => retry.mutate(undefined)}>Reprendre</Button>
+            <Button size="sm" disabled={retry.isPending} onClick={() => retry.mutate(undefined)}>
+              Reprendre
+            </Button>
           ) : null}
         </div>
       </div>
@@ -104,7 +141,9 @@ export function PipelineView({ job, clipCount }: { job: Job; clipCount: number }
           <ErrorNote title={`Échec à l'étape « ${STAGE_LABELS[job.error.stage ?? ""] ?? job.error.stage} »`}>
             {job.error.message}
             {job.error.details && Object.keys(job.error.details).length > 0 ? (
-              <pre className="mt-2 max-h-32 overflow-auto font-mono text-[11px] whitespace-pre-wrap text-muted-foreground">{JSON.stringify(job.error.details, null, 1)}</pre>
+              <pre className="mt-2 max-h-32 overflow-auto font-mono text-[11px] whitespace-pre-wrap text-muted-foreground">
+                {JSON.stringify(job.error.details, null, 1)}
+              </pre>
             ) : null}
             <div className="mt-2 text-xs text-muted-foreground">Les étapes déjà terminées sont conservées : « Reprendre » repart de celle-ci.</div>
           </ErrorNote>
@@ -112,20 +151,29 @@ export function PipelineView({ job, clipCount }: { job: Job; clipCount: number }
       ) : null}
       {job.warnings.length > 0 ? (
         <ul className="mb-5 space-y-1 rounded-lg bg-warn/10 px-4 py-3 text-[13px] text-warn">
-          {job.warnings.map((warning) => <li key={warning}>{warning}</li>)}
+          {job.warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
         </ul>
       ) : null}
 
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
         <div>
           <SectionTitle>Étapes</SectionTitle>
-          <ol className="divide-y divide-border">{job.stages.map((stage) => <StageRow key={stage.name} stage={stage} now={now} />)}</ol>
+          <ol className="divide-y divide-border">
+            {job.stages.map((stage) => (
+              <StageRow key={stage.name} stage={stage} now={now} />
+            ))}
+          </ol>
         </div>
         <div className="min-w-0">
           <SectionTitle>Journal d&apos;activité</SectionTitle>
           <div ref={logBox} className="h-[21.5rem] overflow-y-auto rounded-lg bg-background p-3 font-mono text-[11px] leading-relaxed">
             {(logs.data ?? []).map((line) => (
-              <div key={line.id} className={cn("flex gap-2", line.level === "error" ? "text-destructive" : line.level === "warning" ? "text-warn" : "text-muted-foreground")}>
+              <div
+                key={line.id}
+                className={cn("flex gap-2", line.level === "error" ? "text-destructive" : line.level === "warning" ? "text-warn" : "text-muted-foreground")}
+              >
                 <span className="tnum shrink-0 opacity-60">{new Date(line.ts).toLocaleTimeString("fr-FR")}</span>
                 <span className="min-w-0 break-words">{line.message}</span>
               </div>

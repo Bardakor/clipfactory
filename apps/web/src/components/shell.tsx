@@ -33,7 +33,9 @@ function SystemStatus() {
   if (!health.data) {
     return <div className="h-16" />;
   }
-  const missing = Object.entries(health.data.dependencies).filter(([, v]) => !v).map(([k]) => k);
+  const missing = Object.entries(health.data.dependencies)
+    .filter(([, v]) => !v)
+    .map(([k]) => k);
   return (
     <div className="space-y-3">
       <StatusLine ok={health.data.worker_alive} label="Worker" detail={health.data.worker_alive ? "Actif" : "Arrêté — aucun job ne sera traité"} />
@@ -96,8 +98,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
       <div className="min-w-0 flex-1">
         {health.data?.test_mode ? (
           <div className="bg-warn/15 px-8 py-2 text-xs text-warn">
-            <strong className="font-semibold">MODE TEST</strong> — des adaptateurs simulés remplacent l&apos;IA et/ou la transcription. Les résultats
-            produits ainsi sont marqués TEST et ne reflètent aucune analyse réelle.
+            <strong className="font-semibold">MODE TEST</strong> — des adaptateurs simulés remplacent l&apos;IA et/ou la transcription. Les résultats produits
+            ainsi sont marqués TEST et ne reflètent aucune analyse réelle.
           </div>
         ) : null}
         <main className="mx-auto w-full max-w-[1320px] px-8 pt-8 pb-16">{children}</main>

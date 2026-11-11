@@ -17,10 +17,29 @@ const setRange = (slider: Locator, value: string) =>
 test("local video → clip rendered with subtitles → shown, editable and downloadable", async ({ page }, testInfo) => {
   const fixture = path.join(testInfo.outputDir, "fixture.mp4");
   execFileSync("mkdir", ["-p", testInfo.outputDir]);
-  execFileSync("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y",
-    "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30:duration=20",
-    "-f", "lavfi", "-i", "sine=frequency=440:duration=20",
-    "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", fixture]);
+  execFileSync("ffmpeg", [
+    "-hide_banner",
+    "-loglevel",
+    "error",
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "testsrc2=size=640x360:rate=30:duration=20",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=440:duration=20",
+    "-c:v",
+    "libx264",
+    "-preset",
+    "ultrafast",
+    "-pix_fmt",
+    "yuv420p",
+    "-c:a",
+    "aac",
+    fixture,
+  ]);
 
   await page.goto("/");
   await expect(page.getByText("MODE TEST")).toBeVisible(); // the interface says it is not doing real inference

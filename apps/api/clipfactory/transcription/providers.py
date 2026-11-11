@@ -48,12 +48,18 @@ def read_chunk(wav: Path, start_ms: int, end_ms: int) -> np.ndarray:
     return audio
 
 
+# Segments Whisper itself is this unsure of are dropped rather than shown: on music or game audio with nobody
+# talking it emits confident-looking filler ("The End", "Thanks for watching") at very low likelihood.
+MIN_AVG_LOGPROB = -1.0
+MAX_COMPRESSION_RATIO = 2.4  # above this the text is a repetition loop
+
+
 class MlxWhisperTranscriber:
     """Whisper on Apple Silicon via MLX. Word timings come from Whisper's own
     cross-attention alignment (DTW) — real measurements, not interpolation."""
 
     name = "mlx"
-    chunk_ms = 10 * 60_000
+    chunk_ms = 5 * 60_000  # also the granularity of progress, checkpoints and cancellation
     is_test = False
     _lock = threading.Lock()  # one model in memory, one inference at a time
 
@@ -77,7 +83,10 @@ class MlxWhisperTranscriber:
                     word_timestamps=True,
                     initial_prompt=prompt or None,
                     condition_on_previous_text=False,  # stops hallucinated loops from spreading
-                    hallucination_silence_threshold=2.0,
+                    # One retry at a higher temperature, not Whisper's default six: on non-speech audio every
+                    # window would otherwise be decoded six times. (hallucination_silence_threshold is avoided
+                    # for the same reason — it made a 150 s music-only clip take minutes.)
+                    temperature=(0.0, 0.4),
                     verbose=None,
                 )
             except Exception as exc:  # noqa: BLE001 - MLX raises a variety of runtime errors
@@ -89,8 +98,8 @@ class MlxWhisperTranscriber:
             text = (seg.get("text") or "").strip()
             if not any(ch.isalnum() for ch in text):  # empty, or punctuation-only noise such as "..."
                 continue
-            # Whisper's own "this is probably not speech" signal: drop instead of inventing words.
-            if seg.get("no_speech_prob", 0) > 0.6 and seg.get("avg_logprob", 0) < -1.0:
+            # Drop what Whisper itself flags as probably not speech, instead of inventing words.
+            if seg.get("avg_logprob", 0.0) < MIN_AVG_LOGPROB or seg.get("compression_ratio", 0.0) > MAX_COMPRESSION_RATIO:
                 continue
             words = [
                 Word(w=w["word"], s=start_ms + s_to_ms(w["start"]), e=start_ms + s_to_ms(w["end"]),

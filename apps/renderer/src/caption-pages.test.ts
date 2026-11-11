@@ -3,12 +3,21 @@ import { describe, expect, it } from "vitest";
 import { buildPages, HOLD_MS, pageAt } from "./caption-pages";
 
 const word = (text: string, startMs: number, endMs: number, extra: Partial<Caption> = {}): Caption => ({
-  text: ` ${text}`, startMs, endMs, timestampMs: Math.round((startMs + endMs) / 2), confidence: 0.9, ...extra,
+  text: ` ${text}`,
+  startMs,
+  endMs,
+  timestampMs: Math.round((startMs + endMs) / 2),
+  confidence: 0.9,
+  ...extra,
 });
 
 describe("caption pages", () => {
   it("splits on pageBreakAfter and keeps word timings", () => {
-    const pages = buildPages([word("attends", 0, 300), word("attends", 320, 600, { pageBreakAfter: true }), word("freine", 2000, 2400, { pageBreakAfter: true })]);
+    const pages = buildPages([
+      word("attends", 0, 300),
+      word("attends", 320, 600, { pageBreakAfter: true }),
+      word("freine", 2000, 2400, { pageBreakAfter: true }),
+    ]);
     expect(pages).toHaveLength(2);
     expect(pages[0]!.tokens.map((t) => t.text.trim())).toEqual(["attends", "attends"]);
     expect(pages[0]!.tokens[1]).toMatchObject({ fromMs: 320, toMs: 600 });

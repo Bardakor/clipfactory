@@ -56,7 +56,8 @@ export default function DashboardPage() {
             </Link>
           }
         >
-          Collez une URL YouTube ou déposez un fichier : CLIPFACTORY transcrit, repère les meilleurs moments, les classe et produit des clips verticaux sous-titrés.
+          Collez une URL YouTube ou déposez un fichier : CLIPFACTORY transcrit, repère les meilleurs moments, les classe et produit des clips verticaux
+          sous-titrés.
         </Empty>
       ) : (
         <>
@@ -66,7 +67,13 @@ export default function DashboardPage() {
             <Kpi label="En attente de revue" value={stats.clips_awaiting_review} />
             <Kpi
               label="Jobs réussis / échoués"
-              value={<>{stats.jobs_succeeded}<span className="text-muted-foreground"> / </span><span className={stats.jobs_failed ? "text-destructive" : ""}>{stats.jobs_failed}</span></>}
+              value={
+                <>
+                  {stats.jobs_succeeded}
+                  <span className="text-muted-foreground"> / </span>
+                  <span className={stats.jobs_failed ? "text-destructive" : ""}>{stats.jobs_failed}</span>
+                </>
+              }
               note={stats.jobs_active ? `${stats.jobs_active} en cours` : undefined}
             />
             <Kpi
@@ -83,17 +90,30 @@ export default function DashboardPage() {
 
           <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
             <section>
-              <SectionTitle aside={<Link href="/projets" className="text-xs text-muted-foreground hover:text-foreground">Tout voir</Link>}>Historique des traitements</SectionTitle>
+              <SectionTitle
+                aside={
+                  <Link href="/projets" className="text-xs text-muted-foreground hover:text-foreground">
+                    Tout voir
+                  </Link>
+                }
+              >
+                Historique des traitements
+              </SectionTitle>
               <ul className="divide-y divide-border">
                 {stats.history.map((item) => (
                   <li key={`${item.project_id}-${item.created_at}`}>
-                    <Link href={`/projets/${item.project_id}`} className="grid grid-cols-[minmax(0,1fr)_7rem_6rem_7rem] items-center gap-4 py-3 text-sm hover:bg-surface/60">
+                    <Link
+                      href={`/projets/${item.project_id}`}
+                      className="grid grid-cols-[minmax(0,1fr)_7rem_6rem_7rem] items-center gap-4 py-3 text-sm hover:bg-surface/60"
+                    >
                       <span className="flex min-w-0 items-center gap-2">
                         <span className="truncate">{item.name}</span>
                         {item.is_test ? <TestBadge /> : null}
                       </span>
                       <JobStatus status={item.status} />
-                      <span className="tnum text-right font-mono text-xs text-muted-foreground">{item.processing_s !== null ? seconds(item.processing_s * 1000) : "—"}</span>
+                      <span className="tnum text-right font-mono text-xs text-muted-foreground">
+                        {item.processing_s !== null ? seconds(item.processing_s * 1000) : "—"}
+                      </span>
                       <span className="text-right text-xs text-muted-foreground">{dateTime(item.created_at)}</span>
                     </Link>
                   </li>

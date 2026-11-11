@@ -395,15 +395,17 @@ def stage_refine(ctx: JobContext) -> None:
             evidence = c.evidence or {}
             main_event = (c.structure or {}).get("main_event") or c.title
             first_words = " ".join(" ".join(sg.text for sg in segments if sg.end_ms > start and sg.start_ms < end).split()[:9])
+            # No model title and nothing spoken (pure gameplay): name the clip by where it is in the source.
+            fallback_title = c.title or first_words or f"Moment à {clock(start)}"
             s.add(Clip(
                 project_id=ctx.project_id, candidate_id=c.id, rank=rank, start_ms=start, end_ms=end,
                 original_start_ms=start, original_end_ms=end, score=c.final_score or 0,
-                score_basis=evidence.get("basis", "heuristic"), title=(copy.title if copy else c.title or first_words)[:300],
+                score_basis=evidence.get("basis", "heuristic"), title=(copy.title if copy else fallback_title)[:300],
                 main_event=(main_event or "")[:300], justification=c.justification, layout=p.layout,
                 subtitle_style=p.subtitle_style, subtitle_options=p.subtitle_options.model_dump(),
                 captions=[cp.model_dump() for cp in captions], captions_precision=precision,
                 social={"title": copy.title, "caption": copy.caption, "hashtags": copy.hashtags, "origin": "test" if is_test else "ai"}
-                if copy else {"title": c.title or first_words, "caption": first_words, "hashtags": DEFAULT_HASHTAGS[p.profile],
+                if copy else {"title": fallback_title, "caption": first_words, "hashtags": DEFAULT_HASHTAGS[p.profile],
                               "origin": "default"},
                 is_test=is_test,
             ))  # fmt: skip

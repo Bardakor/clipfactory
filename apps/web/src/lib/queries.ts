@@ -7,8 +7,7 @@ import type { Clip, ClipDetail, Health, Job, LogLine, ModelsResponse, Project, R
 
 const ACTIVE = new Set(["queued", "running"]);
 
-export const useHealth = () =>
-  useQuery({ queryKey: ["health"], queryFn: () => api<Health>("/health"), refetchInterval: 10_000, retry: false });
+export const useHealth = () => useQuery({ queryKey: ["health"], queryFn: () => api<Health>("/health"), refetchInterval: 10_000, retry: false });
 
 export const useStats = () => useQuery({ queryKey: ["stats"], queryFn: () => api<Stats>("/stats"), refetchInterval: 15_000 });
 
@@ -74,7 +73,10 @@ export const useModels = () => useQuery({ queryKey: ["models"], queryFn: () => a
 export const useStorage = () => useQuery({ queryKey: ["storage"], queryFn: () => api<Storage>("/storage") });
 
 /** A mutation that refreshes everything it could have affected and reports failures as toasts. */
-export function useAction<TInput, TOutput = unknown>(run: (input: TInput) => Promise<TOutput>, options?: { success?: string; onDone?: (output: TOutput) => void }) {
+export function useAction<TInput, TOutput = unknown>(
+  run: (input: TInput) => Promise<TOutput>,
+  options?: { success?: string; onDone?: (output: TOutput) => void },
+) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: run,

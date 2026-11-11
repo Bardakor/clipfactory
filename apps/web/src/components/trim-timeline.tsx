@@ -63,7 +63,10 @@ export function TrimTimeline({
         if (e.key === "ArrowLeft") nudge(edge, e.shiftKey ? -1000 : -100);
         if (e.key === "ArrowRight") nudge(edge, e.shiftKey ? 1000 : 100);
       }}
-      className={cn("absolute top-0 z-10 flex h-full w-3 cursor-ew-resize items-center justify-center rounded-sm bg-primary outline-none focus-visible:ring-2 focus-visible:ring-ring", edge === "start" ? "-translate-x-full" : "")}
+      className={cn(
+        "absolute top-0 z-10 flex h-full w-3 cursor-ew-resize items-center justify-center rounded-sm bg-primary outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        edge === "start" ? "-translate-x-full" : "",
+      )}
       style={{ left: `${percent(edge === "start" ? startMs : endMs)}%` }}
     >
       <span className="h-4 w-px bg-primary-foreground/70" />
@@ -73,8 +76,14 @@ export function TrimTimeline({
   const nudges = (edge: "start" | "end") => (
     <div className="flex items-center gap-1">
       {[-1000, -100, 100, 1000].map((delta) => (
-        <button key={delta} type="button" onClick={() => nudge(edge, delta)} className="tnum h-6 rounded bg-raised px-1.5 font-mono text-[10px] text-muted-foreground hover:text-foreground">
-          {delta > 0 ? "+" : "−"}{Math.abs(delta) / 1000}s
+        <button
+          key={delta}
+          type="button"
+          onClick={() => nudge(edge, delta)}
+          className="tnum h-6 rounded bg-raised px-1.5 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+        >
+          {delta > 0 ? "+" : "−"}
+          {Math.abs(delta) / 1000}s
         </button>
       ))}
     </div>
@@ -84,7 +93,10 @@ export function TrimTimeline({
     <div>
       <div ref={track} className="relative h-12 touch-none rounded-md bg-background select-none">
         {/* where the clip was when it was generated */}
-        <div className="absolute inset-y-0 border-x border-dashed border-muted-foreground/40" style={{ left: `${percent(originalStartMs)}%`, width: `${percent(originalEndMs) - percent(originalStartMs)}%` }} />
+        <div
+          className="absolute inset-y-0 border-x border-dashed border-muted-foreground/40"
+          style={{ left: `${percent(originalStartMs)}%`, width: `${percent(originalEndMs) - percent(originalStartMs)}%` }}
+        />
         <div className="absolute inset-y-0 bg-primary/20" style={{ left: `${percent(startMs)}%`, width: `${percent(endMs) - percent(startMs)}%` }} />
         {handle("start")}
         {handle("end")}

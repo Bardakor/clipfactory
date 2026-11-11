@@ -11,6 +11,7 @@ import os
 import signal
 import socket
 import threading
+import time
 
 from clipfactory.config import get_settings
 from clipfactory.db import migrate, session_scope
@@ -20,6 +21,7 @@ from clipfactory.pipeline.runner import claim_next_job, recover_interrupted_jobs
 
 log = get_logger("worker")
 POLL_SECONDS = 1.0
+RECOVERY_SECONDS = 15.0
 
 
 def _beat(worker_id: str, stop: threading.Event) -> None:
@@ -58,9 +60,16 @@ def main() -> None:
     recovered = recover_interrupted_jobs()
     log.info("worker started", extra={"data": {"worker": worker_id, "recovered_jobs": recovered, "test_mode": settings.test_mode,
                                                "openrouter_key": settings.has_openrouter_key}})  # fmt: skip
+    last_recovery = time.monotonic()
     while not shutdown.is_set():
         job_id = claim_next_job(worker_id)
         if job_id is None:
+            # A job whose worker died a few seconds before this one started still looks alive at startup,
+            # so the sweep for stale heartbeats is repeated while idle, not done just once.
+            if time.monotonic() - last_recovery >= RECOVERY_SECONDS:
+                last_recovery = time.monotonic()
+                if recovered := recover_interrupted_jobs():
+                    log.info("recovered interrupted jobs", extra={"data": {"count": recovered}})
             shutdown.wait(POLL_SECONDS)
             continue
         log.info("job claimed", extra={"data": {"job": job_id}})

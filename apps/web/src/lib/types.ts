@@ -127,7 +127,10 @@ export type Clip = {
 export type CaptionPage = { index: number; text: string; start_ms: number; end_ms: number; measured: boolean };
 
 export type ClipDetail = {
-  clip: Clip & { caption_pages: CaptionPage[]; feedback: Array<{ decision: string; rejection_reason: string | null; rating: number | null; created_at: string }> };
+  clip: Clip & {
+    caption_pages: CaptionPage[];
+    feedback: Array<{ decision: string; rejection_reason: string | null; rating: number | null; created_at: string }>;
+  };
   source: { id: string; title: string; duration_ms: number; width: number; height: number; origin_url: string | null; facecam_found: boolean };
   project: { id: string; name: string; settings: ProjectSettings };
   evidence: {
@@ -239,12 +242,29 @@ export type ModelsResponse = {
   models: ModelInfo[];
 };
 
-export type TranscriptSegment = { id: string; start_ms: number; end_ms: number; text: string; language: string | null; confidence: number | null; has_words: boolean; provenance: string };
+export type TranscriptSegment = {
+  id: string;
+  start_ms: number;
+  end_ms: number;
+  text: string;
+  language: string | null;
+  confidence: number | null;
+  has_words: boolean;
+  provenance: string;
+};
 export type TranscriptResponse = {
   transcript: { id: string; provider: string; model: string; language: string | null; precision: "word" | "segment"; edited: boolean; is_test: boolean };
   segments: TranscriptSegment[];
 };
 
-export type YouTubeInfo = { video_id: string; url: string; title: string; channel: string | null; duration_s: number | null; thumbnail_url: string | null; is_live: boolean };
+export type YouTubeInfo = {
+  video_id: string;
+  url: string;
+  title: string;
+  channel: string | null;
+  duration_s: number | null;
+  thumbnail_url: string | null;
+  is_live: boolean;
+};
 export type LogLine = { id: number; stage: string | null; level: "info" | "warning" | "error"; message: string; ts: string };
 export type Storage = { data_dir: string; bytes: Record<string, number>; total_bytes: number; cleanable: string[] };

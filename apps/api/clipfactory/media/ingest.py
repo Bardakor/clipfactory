@@ -101,7 +101,12 @@ def canonical_youtube_url(video_id: str) -> str:
 
 def _ytdlp(args: list[str], **kw) -> str:  # noqa: ANN003
     # No cookies, no credentials, no geo/DRM workarounds: only publicly served formats.
-    return run([sys.executable, "-m", "yt_dlp", "--no-playlist", "--no-warnings", "--ignore-config", *args], **kw)
+    # yt-dlp needs a JavaScript runtime (plus its bundled yt-dlp-ejs solver) to resolve YouTube's
+    # format URLs; without one, some formats answer 403. Node is already a project requirement.
+    base = [sys.executable, "-m", "yt_dlp", "--no-playlist", "--no-warnings", "--ignore-config"]
+    if shutil.which("node"):
+        base += ["--js-runtimes", "node"]
+    return run([*base, *args], **kw)
 
 
 def _ytdlp_message(exc: MediaError) -> str:

@@ -259,3 +259,34 @@ def test_stt_uses_json_base64_contract_and_falls_back(keyed, tmp_path, monkeypat
     result = transcriber.transcribe_chunk(tmp_path / "a.wav", 0, 30_000, "fr", "")
     assert not result.word_level and result.segments[0].words is None  # no timing invented
     assert transcriber.chunk_ms == 30_000  # shorter chunks from now on, since each is one untimed block
+
+
+def test_whisper_filler_on_non_speech_audio_is_dropped(tmp_path, monkeypatch):
+    """Regression (found on a real music-only video): Whisper emits filler such as "The End" at very low
+    likelihood when nobody is talking. Those segments must be dropped, not shown as speech."""
+    import numpy as np
+    import soundfile as sf
+
+    mlx_whisper = pytest.importorskip("mlx_whisper")
+    from clipfactory.transcription.providers import MlxWhisperTranscriber
+
+    wav = tmp_path / "a.wav"
+    sf.write(wav, np.zeros(16000 * 20, dtype="float32"), 16000)
+    seen = {}
+
+    def fake_transcribe(audio, **kwargs):
+        seen.update(kwargs)
+        word = {"word": " ok", "start": 0.1, "end": 0.4, "probability": 0.9}
+        return {"language": "en", "segments": [
+            {"start": 0.0, "end": 1.0, "text": " Real speech here", "avg_logprob": -0.2, "compression_ratio": 1.1, "words": [word]},
+            {"start": 1.0, "end": 2.0, "text": " The End", "avg_logprob": -1.65, "compression_ratio": 0.5, "words": [word]},
+            {"start": 2.0, "end": 3.0, "text": " la la la la la la", "avg_logprob": -0.3, "compression_ratio": 3.1, "words": [word]},
+            {"start": 3.0, "end": 4.0, "text": " ...", "avg_logprob": -0.4, "compression_ratio": 1.0, "words": []},
+        ]}  # fmt: skip
+
+    monkeypatch.setattr(mlx_whisper, "transcribe", fake_transcribe)
+    result = MlxWhisperTranscriber("some/model").transcribe_chunk(wav, 10_000, 15_000, None, "GTA, FiveM")
+    assert [s.text for s in result.segments] == ["Real speech here"]
+    assert result.segments[0].start_ms == 10_000 and result.segments[0].words[0].s == 10_100
+    assert seen["temperature"] == (0.0, 0.4) and "hallucination_silence_threshold" not in seen
+    assert seen["initial_prompt"] == "GTA, FiveM" and seen["word_timestamps"] is True

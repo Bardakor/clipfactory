@@ -41,5 +41,4 @@ export const buildPages = (captions: Caption[]): CaptionPage[] => {
     });
 };
 
-export const pageAt = (pages: CaptionPage[], ms: number): CaptionPage | null =>
-  pages.find((p) => ms >= p.startMs && ms < p.endMs) ?? null;
+export const pageAt = (pages: CaptionPage[], ms: number): CaptionPage | null => pages.find((p) => ms >= p.startMs && ms < p.endMs) ?? null;

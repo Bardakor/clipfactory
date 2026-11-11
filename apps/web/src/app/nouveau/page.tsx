@@ -118,10 +118,21 @@ export default function NewProjectPage() {
     setProblem(null);
     const [width, height] = values.resolution.split("x").map(Number);
     const settings = {
-      profile: values.profile, clip_count: values.clip_count, min_len_s: values.min_len_s, max_len_s: values.max_len_s,
-      quality_threshold: values.quality_threshold, preset: values.preset, subtitle_style: values.subtitle_style,
-      burn_subtitles: values.burn_subtitles, layout: values.layout, language: values.language, instructions: values.instructions,
-      width, height, fps: Number(values.fps), subtitle_options: runtime.data?.subtitle_options,
+      profile: values.profile,
+      clip_count: values.clip_count,
+      min_len_s: values.min_len_s,
+      max_len_s: values.max_len_s,
+      quality_threshold: values.quality_threshold,
+      preset: values.preset,
+      subtitle_style: values.subtitle_style,
+      burn_subtitles: values.burn_subtitles,
+      layout: values.layout,
+      language: values.language,
+      instructions: values.instructions,
+      width,
+      height,
+      fps: Number(values.fps),
+      subtitle_options: runtime.data?.subtitle_options,
     };
     try {
       const body = mode === "upload" ? { source_id: source?.id, settings } : { youtube_url: video?.url, rights_confirmed: rights, settings };
@@ -143,7 +154,14 @@ export default function NewProjectPage() {
       <section className="rounded-xl bg-surface p-6">
         <div className="mb-5 flex items-center justify-between">
           <SectionTitle>Source</SectionTitle>
-          <Segmented value={mode} onChange={setMode} options={[{ value: "youtube", label: "URL YouTube" }, { value: "upload", label: "Fichier local" }]} />
+          <Segmented
+            value={mode}
+            onChange={setMode}
+            options={[
+              { value: "youtube", label: "URL YouTube" },
+              { value: "upload", label: "Fichier local" },
+            ]}
+          />
         </div>
 
         {mode === "youtube" ? (
@@ -153,8 +171,17 @@ export default function NewProjectPage() {
                 <Link2 className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={url}
-                  onChange={(e) => { setUrl(e.target.value); setVideo(null); setRights(false); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (url.trim()) void inspect(); } }}
+                  onChange={(e) => {
+                    setUrl(e.target.value);
+                    setVideo(null);
+                    setRights(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (url.trim()) void inspect();
+                    }
+                  }}
                   placeholder="https://www.youtube.com/watch?v=…"
                   aria-label="URL YouTube"
                   className="h-14 border-0 bg-raised pl-12 text-base"
@@ -179,7 +206,9 @@ export default function NewProjectPage() {
                     <input type="checkbox" checked={rights} onChange={(e) => setRights(e.target.checked)} className="mt-0.5 size-4 accent-[var(--primary)]" />
                     <span>
                       Je confirme être propriétaire de cette vidéo ou autorisé(e) à la télécharger et à la réutiliser.
-                      <span className="mt-0.5 block text-muted-foreground">Seuls les formats publics sont téléchargés ; aucune protection n&apos;est contournée.</span>
+                      <span className="mt-0.5 block text-muted-foreground">
+                        Seuls les formats publics sont téléchargés ; aucune protection n&apos;est contournée.
+                      </span>
                     </span>
                   </label>
                 </div>
@@ -188,17 +217,30 @@ export default function NewProjectPage() {
           </div>
         ) : (
           <div>
-            <input ref={fileInput} type="file" accept={ACCEPTED.join(",")} className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) startUpload(f); e.target.value = ""; }} />
+            <input
+              ref={fileInput}
+              type="file"
+              accept={ACCEPTED.join(",")}
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) startUpload(f);
+                e.target.value = "";
+              }}
+            />
             {source ? (
               <div className="flex items-center gap-4 rounded-lg bg-raised p-4">
                 <FileVideo className="size-8 shrink-0 text-primary" strokeWidth={1.5} />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{source.title}</div>
                   <div className="tnum mt-0.5 text-xs text-muted-foreground">
-                    {clock(source.duration_ms)} · {source.width}×{source.height} · {source.fps} i/s · {source.video_codec}/{source.audio_codec ?? "sans audio"} · {bytes(source.bytes)}
+                    {clock(source.duration_ms)} · {source.width}×{source.height} · {source.fps} i/s · {source.video_codec}/{source.audio_codec ?? "sans audio"}{" "}
+                    · {bytes(source.bytes)}
                   </div>
                 </div>
-                <Button type="button" variant="ghost" size="icon" onClick={() => setSource(null)} aria-label="Retirer la source"><X className="size-4" /></Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => setSource(null)} aria-label="Retirer la source">
+                  <X className="size-4" />
+                </Button>
               </div>
             ) : upload ? (
               <div className="rounded-lg bg-raised p-5">
@@ -206,17 +248,32 @@ export default function NewProjectPage() {
                   <span className="truncate">{upload.name}</span>
                   <span className="tnum text-muted-foreground">{upload.fraction < 1 ? `${Math.round(upload.fraction * 100)} %` : "analyse du fichier…"}</span>
                 </div>
-                <div className="h-1 overflow-hidden rounded-full bg-background"><div className="h-full bg-primary transition-[width]" style={{ width: `${upload.fraction * 100}%` }} /></div>
-                <button type="button" className="mt-3 text-xs text-muted-foreground hover:text-foreground" onClick={upload.abort}>Annuler l&apos;envoi</button>
+                <div className="h-1 overflow-hidden rounded-full bg-background">
+                  <div className="h-full bg-primary transition-[width]" style={{ width: `${upload.fraction * 100}%` }} />
+                </div>
+                <button type="button" className="mt-3 text-xs text-muted-foreground hover:text-foreground" onClick={upload.abort}>
+                  Annuler l&apos;envoi
+                </button>
               </div>
             ) : (
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
                 onDragLeave={() => setDragging(false)}
-                onDrop={(e) => { e.preventDefault(); setDragging(false); const f = e.dataTransfer.files?.[0]; if (f) startUpload(f); }}
-                className={cn("flex w-full flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-12 transition-colors", dragging ? "border-primary bg-primary/5" : "border-input hover:border-muted-foreground/50")}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) startUpload(f);
+                }}
+                className={cn(
+                  "flex w-full flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-12 transition-colors",
+                  dragging ? "border-primary bg-primary/5" : "border-input hover:border-muted-foreground/50",
+                )}
               >
                 <UploadCloud className="size-7 text-muted-foreground" strokeWidth={1.5} />
                 <span className="text-sm font-medium">Déposez une vidéo ici, ou cliquez pour choisir</span>
@@ -225,39 +282,81 @@ export default function NewProjectPage() {
             )}
           </div>
         )}
-        {problem ? <div className="mt-5"><ErrorNote title="Impossible de continuer">{problem}</ErrorNote></div> : null}
+        {problem ? (
+          <div className="mt-5">
+            <ErrorNote title="Impossible de continuer">{problem}</ErrorNote>
+          </div>
+        ) : null}
       </section>
 
       <section className="mt-6 grid gap-x-10 gap-y-7 rounded-xl bg-surface p-6 lg:grid-cols-2">
         <div className="space-y-6">
           <SectionTitle>Sélection éditoriale</SectionTitle>
           <Field group label="Profil gaming">
-            <Controller control={control} name="profile" render={({ field }) => (
-              <Segmented className="w-full" value={field.value} onChange={field.onChange} options={Object.entries(PROFILE_LABELS).map(([value, label]) => ({ value: value as FormValues["profile"], label }))} />
-            )} />
+            <Controller
+              control={control}
+              name="profile"
+              render={({ field }) => (
+                <Segmented
+                  className="w-full"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={Object.entries(PROFILE_LABELS).map(([value, label]) => ({ value: value as FormValues["profile"], label }))}
+                />
+              )}
+            />
           </Field>
           <Field label="Nombre de clips souhaité" hint={<span className="tnum">{count}</span>}>
             <input type="range" min={1} max={30} className="field-range" {...register("clip_count", { valueAsNumber: true })} />
           </Field>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Durée min (s)"><Input type="number" className="border-0 bg-raised" {...register("min_len_s", { valueAsNumber: true })} /></Field>
-            <Field label="Durée max (s)"><Input type="number" className="border-0 bg-raised" {...register("max_len_s", { valueAsNumber: true })} /></Field>
+            <Field label="Durée min (s)">
+              <Input type="number" className="border-0 bg-raised" {...register("min_len_s", { valueAsNumber: true })} />
+            </Field>
+            <Field label="Durée max (s)">
+              <Input type="number" className="border-0 bg-raised" {...register("max_len_s", { valueAsNumber: true })} />
+            </Field>
           </div>
           {formState.errors.max_len_s ? <p className="-mt-3 text-xs text-destructive">{formState.errors.max_len_s.message}</p> : null}
           <Field label="Seuil de qualité" hint={<span className="tnum">{threshold} / 100</span>}>
             <input type="range" min={0} max={100} className="field-range" {...register("quality_threshold", { valueAsNumber: true })} />
-            <span className="mt-1.5 block text-[11px] text-muted-foreground">Moins de clips que demandé seront produits si la source n&apos;en contient pas assez au-dessus de ce seuil.</span>
+            <span className="mt-1.5 block text-[11px] text-muted-foreground">
+              Moins de clips que demandé seront produits si la source n&apos;en contient pas assez au-dessus de ce seuil.
+            </span>
           </Field>
-          <Field group label="Préréglage d'inférence IA" hint={health.data && !health.data.openrouter_key_configured ? <span className="text-warn">clé OpenRouter absente</span> : undefined}>
-            <Controller control={control} name="preset" render={({ field }) => (
-              <Segmented className="w-full" value={field.value} onChange={field.onChange} options={Object.entries(PRESET_LABELS).map(([value, label]) => ({ value: value as FormValues["preset"], label }))} />
-            )} />
+          <Field
+            group
+            label="Préréglage d'inférence IA"
+            hint={health.data && !health.data.openrouter_key_configured ? <span className="text-warn">clé OpenRouter absente</span> : undefined}
+          >
+            <Controller
+              control={control}
+              name="preset"
+              render={({ field }) => (
+                <Segmented
+                  className="w-full"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={Object.entries(PRESET_LABELS).map(([value, label]) => ({ value: value as FormValues["preset"], label }))}
+                />
+              )}
+            />
           </Field>
           <Field label="Consignes éditoriales (facultatif)">
-            <Textarea rows={3} placeholder="Ex. : privilégie les dialogues absurdes entre policiers et civils." className="border-0 bg-raised" {...register("instructions")} />
+            <Textarea
+              rows={3}
+              placeholder="Ex. : privilégie les dialogues absurdes entre policiers et civils."
+              className="border-0 bg-raised"
+              {...register("instructions")}
+            />
             <div className="mt-2 flex flex-wrap gap-1.5">
               {EXAMPLES.map((example) => (
-                <button key={example} type="button" onClick={() => setValue("instructions", example, { shouldDirty: true })} className="rounded-full bg-raised px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground">
+                <button
+                  key={example}
+                  type="button"
+                  onClick={() => setValue("instructions", example, { shouldDirty: true })}
+                  className="rounded-full bg-raised px-2.5 py-1 text-[11px] text-muted-foreground hover:text-foreground"
+                >
                   {example}
                 </button>
               ))}
@@ -268,9 +367,18 @@ export default function NewProjectPage() {
         <div className="space-y-6">
           <SectionTitle>Rendu</SectionTitle>
           <Field group label="Style de sous-titres">
-            <Controller control={control} name="subtitle_style" render={({ field }) => (
-              <Segmented className="w-full" value={field.value} onChange={field.onChange} options={Object.entries(STYLE_LABELS).map(([value, label]) => ({ value: value as FormValues["subtitle_style"], label }))} />
-            )} />
+            <Controller
+              control={control}
+              name="subtitle_style"
+              render={({ field }) => (
+                <Segmented
+                  className="w-full"
+                  value={field.value}
+                  onChange={field.onChange}
+                  options={Object.entries(STYLE_LABELS).map(([value, label]) => ({ value: value as FormValues["subtitle_style"], label }))}
+                />
+              )}
+            />
           </Field>
           <div className="flex items-center justify-between">
             <div>
@@ -281,26 +389,46 @@ export default function NewProjectPage() {
           </div>
           <Field label="Mise en page verticale">
             <select className="field-select" {...register("layout")}>
-              {(["auto", "full", "crop", "split", "dynamic"] as const).map((value) => <option key={value} value={value}>{LAYOUT_LABELS[value]}</option>)}
+              {(["auto", "full", "crop", "split", "dynamic"] as const).map((value) => (
+                <option key={value} value={value}>
+                  {LAYOUT_LABELS[value]}
+                </option>
+              ))}
             </select>
-            <span className="mt-1.5 block text-[11px] text-muted-foreground">« Automatique » garde tout le gameplay visible, et passe en split si une facecam est détectée de façon fiable.</span>
+            <span className="mt-1.5 block text-[11px] text-muted-foreground">
+              « Automatique » garde tout le gameplay visible, et passe en split si une facecam est détectée de façon fiable.
+            </span>
           </Field>
           <div className="grid grid-cols-3 gap-4">
             <Field label="Résolution">
-              <select className="field-select" {...register("resolution")}><option value="1080x1920">1080×1920</option><option value="720x1280">720×1280</option></select>
+              <select className="field-select" {...register("resolution")}>
+                <option value="1080x1920">1080×1920</option>
+                <option value="720x1280">720×1280</option>
+              </select>
             </Field>
             <Field label="Images/s">
-              <select className="field-select" {...register("fps")}><option value="30">30</option><option value="60">60</option></select>
+              <select className="field-select" {...register("fps")}>
+                <option value="30">30</option>
+                <option value="60">60</option>
+              </select>
             </Field>
             <Field label="Langue">
-              <select className="field-select" {...register("language")}><option value="auto">Auto</option><option value="fr">Français</option><option value="en">Anglais</option></select>
+              <select className="field-select" {...register("language")}>
+                <option value="auto">Auto</option>
+                <option value="fr">Français</option>
+                <option value="en">Anglais</option>
+              </select>
             </Field>
           </div>
         </div>
       </section>
 
       <div className="mt-6 flex items-center justify-end gap-4">
-        {!ready ? <span className="text-xs text-muted-foreground">{mode === "upload" ? "Ajoutez une vidéo pour continuer." : video ? "Confirmez vos droits sur la vidéo." : "Vérifiez d'abord l'URL."}</span> : null}
+        {!ready ? (
+          <span className="text-xs text-muted-foreground">
+            {mode === "upload" ? "Ajoutez une vidéo pour continuer." : video ? "Confirmez vos droits sur la vidéo." : "Vérifiez d'abord l'URL."}
+          </span>
+        ) : null}
         <Button type="submit" size="lg" className="h-11 px-7" disabled={!ready || formState.isSubmitting}>
           {formState.isSubmitting ? <Loader2 className="size-4 animate-spin" /> : null}
           Générer les clips
