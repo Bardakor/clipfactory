@@ -1,6 +1,6 @@
 """LIVE OpenRouter tests. Skipped unless a real key is configured:
 
-    OPENROUTER_API_KEY=... uv run pytest -m live
+    uv run pytest -m live          (key taken from .env, or from OPENROUTER_API_KEY in the shell)
 
 These spend a few cents and are the only tests that prove real inference works.
 """
@@ -17,7 +17,19 @@ from clipfactory.ai.gateway import OpenRouterGateway, image_part, text_part
 from clipfactory.ai.registry import ModelRegistry
 from clipfactory.settings_store import RuntimeSettings
 
-KEY = os.environ.get("CLIPFACTORY_LIVE_KEY") or os.environ.get("OPENROUTER_API_KEY")
+
+def _configured_key() -> str | None:
+    """The key from the shell, or from the repo's .env exactly as the application reads it."""
+    from clipfactory.config import Settings
+
+    env = os.environ.get("CLIPFACTORY_LIVE_KEY") or os.environ.get("OPENROUTER_API_KEY")
+    if env:
+        return env
+    secret = Settings().openrouter_api_key
+    return secret.get_secret_value() if secret else None
+
+
+KEY = _configured_key()
 pytestmark = [pytest.mark.live, pytest.mark.skipif(not KEY, reason="no OpenRouter key configured")]
 
 

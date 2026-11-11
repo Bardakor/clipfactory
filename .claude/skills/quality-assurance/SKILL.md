@@ -26,7 +26,7 @@ scripts/test.sh                                     # everything except live + b
 scripts/test.sh --e2e                               # + Playwright (starts its own stack on :3100/:8100, TEST mode)
 cd apps/api && uv run pytest -m "not slow and not live"   # ~2 s
 cd apps/api && uv run pytest -m slow                # real FFmpeg/Remotion/Whisper, ~30 s
-cd apps/api && uv run pytest -m live                # needs OPENROUTER_API_KEY; costs cents
+cd apps/api && uv run pytest -m live                # key from .env or the shell; costs well under a cent
 ```
 
 ## Where a new test goes

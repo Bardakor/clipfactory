@@ -32,7 +32,8 @@ OpenRouter's contracts and catalogue change. Re-read the docs for the endpoint y
 5. **Validate against the media, not the model.** Timestamps from a model are checked against the source duration
    before use; candidate ids it invents are discarded.
 6. **Cost:** `usage.cost` from the response is the actual cost; tokens × catalogue price is the estimate. Store
-   and display them separately and never call the estimate a charge.
+   and display them separately and never call the estimate a charge. Reasoning tokens are billed as output, and
+   a request is refused with 402 if the balance cannot cover `max_tokens` — keep `max_tokens` realistic.
 
 ## Adding a new AI task
 
@@ -74,6 +75,8 @@ In the analyst, one failed request in a batch costs only its own result; account
 
 ## Debugging a bad response
 
-1. `inference_usage` rows for the job: status, tokens, error text.
+1. `inference_usage` rows for the job: status, tokens, error text. An `ai_invalid_response` row carries the
+   validation error — read it first. (The first live run failed because `strict_schema` had stripped a *field*
+   named `title` along with the `title` annotations: when a model "forgets" a field, check the schema we sent.)
 2. Cached answer: `data/cache/llm/<aa>/<hash>.json`. Delete it to force a fresh call.
 3. Reproduce with `tests/test_live.py` as a template (`uv run pytest -m live -k name`).

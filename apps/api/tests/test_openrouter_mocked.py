@@ -194,6 +194,10 @@ def test_strict_schema_and_json_extraction():
     item = schema["properties"]["scores"]["items"]
     assert "$ref" not in json.dumps(schema) and item["additionalProperties"] is False
     assert set(item["required"]) == set(item["properties"]) and "title" not in item
+    # Regression (found by live inference): a *field* named like a schema keyword must not be stripped with the annotations.
+    moment = strict_schema(MomentList)["properties"]["moments"]["items"]
+    assert "title" in moment["properties"] and "title" in moment["required"]
+    assert set(moment["properties"]) == set(MomentList.model_fields["moments"].annotation.__args__[0].model_fields)
     assert extract_json('prefix {"a": 1} suffix') == {"a": 1}
     assert extract_json('```json\n{"a": 2}\n```') == {"a": 2}
     clamped = MomentList.model_validate({"moments": [{"start_s": 1, "end_s": 9, "title": "t", "event_type": "e", "setup": "", "payoff": "",

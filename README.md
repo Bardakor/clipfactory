@@ -24,6 +24,12 @@ first render downloads Remotion's headless browser (~100 MB); both are cached af
 
 Requirements: macOS on Apple Silicon, Node 20+, pnpm, [uv](https://docs.astral.sh/uv/), FFmpeg (`brew install ffmpeg uv pnpm`).
 
+### Cost
+
+The fixture run above cost under 2 cents on Rapide. A model's reasoning tokens are billed as output, and OpenRouter
+refuses a request when the account cannot cover its `max_tokens`, so keep a small balance rather than an exact one.
+*Paramètres* has a per-job cost alert and an optional hard cap.
+
 ### Without an OpenRouter key
 
 Everything still runs: import, local transcription, signal detection, cutting, rendering, export. Clips are then
@@ -88,16 +94,25 @@ banner, and excluded from dashboard statistics.
 | Full pipeline source → validated clips | real run in heuristic mode; test-adapter run in pytest and Playwright | ✅ |
 | Dashboard, gallery, editor, re-render, ZIP, feedback | browser (manual + Playwright) | ✅ |
 | Restart persistence and job recovery | automated + a real restart mid-queue | ✅ |
-| OpenRouter request/response handling | **mocked HTTP only** | ⚠️ contract-level |
-| **Real OpenRouter inference** (moments, vision, ranking, critique, captions) | — | ❌ **not run: no key was available** |
-| OpenRouter speech-to-text provider | **mocked HTTP only** | ⚠️ |
+| OpenRouter request/response handling, retries, fallbacks, budget | mocked HTTP + live calls | ✅ |
+| **Real inference on the Rapide preset**: transcript analysis, keyframe understanding, editorial ranking, social copy | live OpenRouter, full pipeline on the synthetic FR/EN fixture (7 requests, $0.018 actual vs $0.019 estimated) | ✅ |
+| Insufficient-credit handling | happened for real: the job stopped at once with OpenRouter's message, and resumed later | ✅ |
+| Équilibré and Qualité max presets (Claude models for ranking and critique) | — | ❌ not run: the account had about 4 cents of credit |
+| Final critique pass (off in Rapide) | mocked only | ⚠️ |
+| OpenRouter speech-to-text provider | mocked HTTP only | ⚠️ |
 | Real video input to a model | — | ❌ not run |
 | Editorial quality on real GTA footage | — | ❌ not evaluated |
 | Sources longer than a few minutes | — | ❌ not run (design is streaming/chunked; untested at 3 h) |
 
-**To close the gap once the key is in `.env`:** run `uv run pytest -m live`, then process one real 20–30 minute
-GTA RP VOD on *Équilibré* and check (1) the job finishes with a non-zero *Coût réel*, (2) clips are labelled **IA**,
-(3) justifications describe what actually happens, (4) `data/exports/<project>/performance.json`.
+On the fixture the live run behaved as intended: it proposed the two real exchanges (the police-car crash and the
+"arrested for a sandwich" line), and the vision model reported that the frames were a colour test card rather than
+gameplay, lowering the visual score instead of inventing action. One observation to watch on real footage: the
+small Rapide model graded two candidates with the same test-card picture very differently.
+
+**To close the remaining gap:** add credit to the OpenRouter account (the Équilibré preset needs a few cents of
+headroom per request), then process one real 20–30 minute GTA RP VOD on *Équilibré* and check (1) clips are
+labelled **IA**, (2) justifications describe what actually happens, (3) *Coût réel* against your expectations,
+(4) `data/exports/<project>/performance.json`.
 
 ## Measured performance
 

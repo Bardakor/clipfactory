@@ -99,6 +99,9 @@ def strict_schema(model: type[BaseModel]) -> dict:
     root = model.model_json_schema()
     defs = root.get("$defs", {})
 
+    annotations = {"title", "default", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength",
+                   "maxLength", "minItems", "maxItems", "pattern", "$defs"}  # fmt: skip
+
     def walk(node: Any) -> Any:
         if isinstance(node, list):
             return [walk(n) for n in node]
@@ -106,11 +109,13 @@ def strict_schema(model: type[BaseModel]) -> dict:
             return node
         if "$ref" in node:
             return walk(defs[node["$ref"].split("/")[-1]])
-        out = {
-            k: walk(v) for k, v in node.items()
-            if k not in {"title", "default", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
-                         "minLength", "maxLength", "minItems", "maxItems", "pattern", "$defs"}
-        }  # fmt: skip
+        out: dict[str, Any] = {}
+        for key, value in node.items():
+            if key == "properties":
+                # Keys here are *field names*, not schema keywords: a field called "title" or "pattern" must survive.
+                out[key] = {name: walk(schema) for name, schema in value.items()}
+            elif key not in annotations:
+                out[key] = walk(value)
         if out.get("type") == "object":
             out["required"] = list(out.get("properties", {}).keys())
             out["additionalProperties"] = False
@@ -291,7 +296,11 @@ class OpenRouterGateway:
                 return schema.model_validate(extract_json(content))
             except (ValidationError, ValueError) as exc:
                 if repairs_left == 0:
-                    raise AIInvalidResponse(f"{model} did not return valid JSON for {task}", error=str(exc)[:300]) from exc
+                    # Keep what was wrong with the reply: without it an invalid answer cannot be diagnosed afterwards.
+                    reason = " ".join(str(exc).split())[:280]
+                    self._on_usage(UsageRecord(task, model, "ai_invalid_response", error=reason,
+                                               prompt_version=prompt_version, input_fingerprint=input_fp))  # fmt: skip
+                    raise AIInvalidResponse(f"{model} did not return valid JSON for {task}: {reason[:160]}", error=reason) from exc
                 repairs_left -= 1
                 messages = [
                     *messages,

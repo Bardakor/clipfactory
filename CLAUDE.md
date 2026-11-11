@@ -34,7 +34,7 @@ scripts/check-deps.sh          # node, uv, ffmpeg, yt-dlp, mlx, remotion, key
 scripts/test.sh                # ruff, pytest (not live), tsc, eslint, vitest
 scripts/test.sh --e2e          # + Playwright against the real stack with TEST adapters
 cd apps/api && uv run pytest -m "not slow and not live"   # fast loop (~2 s)
-cd apps/api && uv run pytest -m live                      # real OpenRouter calls; needs the key, costs cents
+cd apps/api && uv run pytest -m live                      # real OpenRouter calls (key from .env); under a cent
 cd apps/api && uv run alembic revision --autogenerate -m "…"   # after changing models.py
 scripts/make-fixture.sh        # synthetic video with real synthesised FR/EN speech → data/fixtures/sample.mp4
 ```
