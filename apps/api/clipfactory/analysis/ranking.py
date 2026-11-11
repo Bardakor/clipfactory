@@ -186,7 +186,7 @@ def select_clips(
         remaining.sort(key=effective, reverse=True)
         item, result = remaining.pop(0)
         if result.score < threshold:
-            rejected[item.candidate_id] = f"below the quality threshold ({result.score:.0f} < {threshold:.0f})"
+            rejected[item.candidate_id] = f"sous le seuil de qualité ({result.score:.0f} < {threshold:.0f})"
             continue
         clash = next(
             (
@@ -197,25 +197,25 @@ def select_clips(
             None,
         )  # fmt: skip
         if clash is not None:
-            rejected[item.candidate_id] = "duplicate of a higher-ranked clip"
+            rejected[item.candidate_id] = "doublon d'un clip mieux classé"
             continue
         selected.append((item, result))
         type_counts[item.event_type] = type_counts.get(item.event_type, 0) + 1
     for item, result in remaining:
         rejected.setdefault(
             item.candidate_id,
-            "not needed: requested number of clips reached" if result.score >= threshold
-            else f"below the quality threshold ({result.score:.0f} < {threshold:.0f})",
+            "non retenu : nombre de clips demandé atteint" if result.score >= threshold
+            else f"sous le seuil de qualité ({result.score:.0f} < {threshold:.0f})",
         )  # fmt: skip
 
-    below = sum(1 for r in rejected.values() if r.startswith("below"))
-    duplicates = sum(1 for r in rejected.values() if r.startswith("duplicate"))
+    below = sum(1 for r in rejected.values() if r.startswith("sous le seuil"))
+    duplicates = sum(1 for r in rejected.values() if r.startswith("doublon"))
     if len(selected) >= count:
-        explanation = f"{len(selected)} clips selected from {len(scored)} evaluated candidates."
+        explanation = f"{len(selected)} clip(s) retenu(s) parmi {len(scored)} candidats évalués."
     else:
         explanation = (
-            f"Only {len(selected)} of the {count} requested clips met the bar: of {len(scored)} candidates "
-            f"evaluated, {below} scored under the quality threshold ({threshold:.0f}) and {duplicates} "
-            "duplicated a stronger clip. Lower the threshold or use a longer source to get more."
+            f"Seulement {len(selected)} clip(s) sur les {count} demandés atteignent le niveau requis : sur {len(scored)} "
+            f"candidats évalués, {below} sont sous le seuil de qualité ({threshold:.0f}) et {duplicates} faisaient doublon "
+            "avec un clip plus fort. Baissez le seuil ou utilisez une source plus longue pour en obtenir davantage."
         )
     return Selection([i.candidate_id for i, _ in selected], rejected, explanation)

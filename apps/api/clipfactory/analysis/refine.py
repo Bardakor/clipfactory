@@ -60,7 +60,7 @@ def refine_boundaries(
         best = min(starts, key=start_cost)
         new_start = best.start_ms - LEAD_IN_MS
         if new_start != start_ms:
-            notes.append("start aligned to a sentence start")
+            notes.append("début calé sur un début de phrase")
         start_ms = new_start
     start_ms = _outside_words(start_ms, spans, towards=-1)
 
@@ -75,10 +75,10 @@ def refine_boundaries(
                 if best_end < seg.start_ms <= best_end + REACTION_GAP_MS and seg.end_ms <= end_ms + END_SEARCH_FWD_MS:
                     best_end = seg.end_ms
                     extended = True
-                    notes.append("end extended through the reaction")
+                    notes.append("fin prolongée jusqu'à la réaction")
                     break
-        if best_end != end_ms and "end extended through the reaction" not in notes:
-            notes.append("end aligned to a sentence end")
+        if best_end != end_ms and "fin prolongée jusqu'à la réaction" not in notes:
+            notes.append("fin calée sur une fin de phrase")
         end_ms = best_end + TAIL_MS
     end_ms = _outside_words(end_ms, spans, towards=+1)
 
@@ -88,7 +88,7 @@ def refine_boundaries(
         cut = min(near_cut, key=lambda c: abs(c - end_ms))
         if _outside_words(cut, spans, towards=+1) == cut:
             end_ms = cut
-            notes.append("end snapped to a scene cut")
+            notes.append("fin calée sur un changement de plan")
 
     # ── length limits ──
     start_ms = clamp_ms(start_ms, 0, duration_ms)
@@ -98,12 +98,12 @@ def refine_boundaries(
         target = end_ms - max_len_ms
         later = [s.start_ms - LEAD_IN_MS for s in segments if target <= s.start_ms - LEAD_IN_MS < end_ms - min_len_ms]
         start_ms = max(0, min(later)) if later else _outside_words(target, spans, towards=+1)
-        notes.append("setup trimmed to respect the maximum length")
+        notes.append("mise en place raccourcie pour respecter la durée maximale")
     if end_ms - start_ms < min_len_ms:
         missing = min_len_ms - (end_ms - start_ms)
         new_end = min(duration_ms, end_ms + missing)
         new_start = max(0, start_ms - (missing - (new_end - end_ms)))
         start_ms = _outside_words(new_start, spans, towards=-1)
         end_ms = _outside_words(new_end, spans, towards=+1)
-        notes.append("extended to reach the minimum length")
+        notes.append("allongé pour atteindre la durée minimale")
     return clamp_ms(start_ms, 0, duration_ms), clamp_ms(end_ms, 0, duration_ms), notes

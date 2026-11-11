@@ -168,22 +168,22 @@ def resolve_layout(
 
     if requested == "manual" and manual is not None:
         panel = _fit_panel(manual, src_w, src_h, out_w, int(out_h * 0.66), int(out_h * SAFE_TOP))
-        return result("manual", "manual crop", whole([panel]), _caption_below(panel, out_h))
+        return result("manual", "recadrage manuel", whole([panel]), _caption_below(panel, out_h))
 
     if requested == "split" or (requested == "auto" and cam_rect is not None):
         if cam_rect is not None:
             panels, caption_y = _split(cam_rect, src_w, src_h, out_w, out_h)
-            return result("split", "facecam detected reliably", whole(panels), caption_y)
+            return result("split", "facecam détectée de façon fiable", whole(panels), caption_y)
         if requested == "split":
-            return result("full", "no reliable facecam found — full gameplay used instead", whole(full_panels), full_caption)
+            return result("full", "aucune facecam fiable — gameplay complet utilisé à la place", whole(full_panels), full_caption)
 
     if requested == "crop":
         centre, confidence = crop_centre(*saliency) if saliency else (0.5, 0.0)
         if confidence < SALIENCY_MIN_CONFIDENCE:
             centre = 0.5
-            reason = "action position uncertain — crop kept centred"
+            reason = "position de l'action incertaine — recadrage laissé au centre"
         else:
-            reason = f"crop centred on the action (confidence {confidence:.2f})"
+            reason = f"recadrage centré sur l'action (confiance {confidence:.2f})"
         panels, caption_y = _crop(centre, src_w, src_h, out_w, out_h)
         return result("crop", reason, whole(panels), caption_y)
 
@@ -208,7 +208,7 @@ def resolve_layout(
                 segments.append(LayoutSegment(from_ms=a, to_ms=b, panels=panels))
         if len(segments) > 1 or segments[0].panels != full_panels:
             # One caption line for the whole clip, below the tallest panel, so text never jumps.
-            return result("dynamic", f"{len(segments)} framing segment(s) on shot changes", segments, max(full_caption, crop_caption))
-        return result("full", "no shot had a clearly concentrated action — full gameplay kept", whole(full_panels), full_caption)
+            return result("dynamic", f"{len(segments)} cadrage(s), changés aux changements de plan", segments, max(full_caption, crop_caption))
+        return result("full", "aucun plan avec une action nettement localisée — gameplay complet conservé", whole(full_panels), full_caption)
 
-    return result("full", "full gameplay preserved", whole(full_panels), full_caption)
+    return result("full", "gameplay complet préservé", whole(full_panels), full_caption)

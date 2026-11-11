@@ -164,14 +164,14 @@ def test_selection_deduplicates_overlap_and_text():
     ]
     selection = ranking.select_clips(pairs, count=4, threshold=10)
     assert selection.selected == ["best", "other"]
-    assert selection.rejected["overlap"].startswith("duplicate") and selection.rejected["same-words"].startswith("duplicate")
+    assert selection.rejected["overlap"].startswith("doublon") and selection.rejected["same-words"].startswith("doublon")
 
 
 def test_selection_returns_fewer_than_requested_and_explains():
     pairs = [(i, ranking.score_candidate(i)) for i in (_item("ok", 0, heuristic=0.8), _item("weak", 100_000, heuristic=0.2))]
     selection = ranking.select_clips(pairs, count=5, threshold=60)
     assert selection.selected == ["ok"]
-    assert "Only 1 of the 5" in selection.explanation and selection.rejected["weak"].startswith("below")
+    assert "Seulement 1 clip(s) sur les 5" in selection.explanation and selection.rejected["weak"].startswith("sous le seuil")
 
 
 def test_selection_prefers_variety():

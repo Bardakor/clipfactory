@@ -30,6 +30,12 @@ class JobContext:
         self._cancelled = False
         self._lock = threading.Lock()
 
+    def begin_stage(self, name: str) -> None:
+        """Switch to a new stage. Progress throttling starts fresh so the first and last reports always land."""
+        self.stage = name
+        self._last_progress_write = 0.0
+        self._last_progress = None
+
     # ── logging ─────────────────────────────────────────────────────────────
 
     def log(self, message: str, level: str = "info", **data: Any) -> None:

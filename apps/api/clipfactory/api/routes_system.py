@@ -14,7 +14,8 @@ from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from clipfactory.ai.registry import BUDGETS, ModelRegistry
+from clipfactory.ai.registry import BUDGETS, REQUIRED_MODALITY, ModelRegistry
+from clipfactory.analysis.ranking import PROFILE_WEIGHTS
 from clipfactory.api.serializers import iso
 from clipfactory.config import RENDERER_DIR, get_settings
 from clipfactory.db import get_session
@@ -110,7 +111,8 @@ def stats(s: Session = Depends(get_session)) -> dict:
 
 @router.get("/settings")
 def get_runtime_settings(s: Session = Depends(get_session)) -> dict:
-    return {"settings": load_runtime(s).model_dump(mode="json"), "rejection_reasons": REJECTION_REASONS}
+    return {"settings": load_runtime(s).model_dump(mode="json"), "rejection_reasons": REJECTION_REASONS,
+            "profile_weights_default": PROFILE_WEIGHTS, "required_modality": REQUIRED_MODALITY}  # fmt: skip
 
 
 @router.put("/settings")

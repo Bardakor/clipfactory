@@ -160,7 +160,7 @@ def run_job(settings: Settings, job_id: str, shutdown: threading.Event) -> str:
     started = time.monotonic()
     try:
         for name in todo:
-            ctx.stage = name
+            ctx.begin_stage(name)
             ctx.should_stop()
             attempt = 0
             while True:
