@@ -82,17 +82,19 @@ def load_features(settings: Settings, source_id: str) -> tuple[AudioFeatures | N
     return (AudioFeatures.load(audio[-1]) if audio else None, VisualFeatures.load(visual) if visual.exists() else None)
 
 
-def build_analyst(ctx: JobContext) -> tuple[Analyst | None, OpenRouterGateway | None]:
+def build_analyst(ctx: JobContext, *, announce: bool = False) -> tuple[Analyst | None, OpenRouterGateway | None]:
     """The analyst for this job, or (None, None) when no inference is configured.
 
     Running without a key is a supported, clearly labelled degraded mode
     (heuristic ranking only) — never a silent substitute for AI analysis.
     """
     if ctx.settings.clipfactory_ai_adapter == "fake":
-        ctx.log("ADAPTATEUR DE TEST actif : aucune inférence réelle n'est effectuée")
+        if announce:
+            ctx.log("ADAPTATEUR DE TEST actif : aucune inférence réelle n'est effectuée")
         return FakeAnalyst(), None
     if not ctx.settings.has_openrouter_key:
-        ctx.warn("OPENROUTER_API_KEY absente : analyse IA ignorée, classement heuristique uniquement")
+        if announce:
+            ctx.warn("OPENROUTER_API_KEY absente : analyse IA ignorée, classement heuristique uniquement")
         return None, None
 
     def on_usage(record: UsageRecord) -> None:

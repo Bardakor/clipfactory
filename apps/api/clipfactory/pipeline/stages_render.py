@@ -84,6 +84,7 @@ def stage_render(ctx: JobContext) -> None:
             return cid, exc
 
     failures = 0
+    notes: list[tuple[str, str, dict]] = []  # logged after each transaction closes: SQLite has one writer
     # Bounded parallelism: each Remotion render already uses several browser tabs and a few GB of memory.
     with ThreadPoolExecutor(max_workers=ctx.runtime.render_concurrency, thread_name_prefix="render") as pool:
         futures = [pool.submit(one, cid) for cid in todo]
@@ -97,7 +98,7 @@ def stage_render(ctx: JobContext) -> None:
                         clip.render_status = "failed"
                         clip.validation = {"ok": False, "error": outcome.to_dict()}
                     s.add(Render(clip_id=cid, job_id=ctx.job_id, mode=mode, status="failed", error=outcome.to_dict()))
-                    ctx.log(f"rendu échoué pour le clip {clip.rank} : {outcome.message}", "error", details=outcome.details)
+                    notes.append((f"rendu échoué pour le clip {clip.rank} : {outcome.message}", "error", {"details": str(outcome.details)[:1500]}))
                 else:
                     if mode == "final":
                         clip.render_status = "validating"
@@ -108,7 +109,10 @@ def stage_render(ctx: JobContext) -> None:
                                   "width": outcome.width, "height": outcome.height, "fps": outcome.fps,
                                   "layout": outcome.layout.model_dump()},
                     ))  # fmt: skip
-                    ctx.log(f"clip {clip.rank} rendu en {outcome.render_seconds:.1f}s (mise en page : {outcome.layout.used} — {outcome.layout.reason})")
+                    notes.append((f"clip {clip.rank} rendu en {outcome.render_seconds:.1f}s (mise en page : {outcome.layout.used} — {outcome.layout.reason})", "info", {}))
+            while notes:
+                message, level, data = notes.pop(0)
+                ctx.log(message, level, **data)
     ctx.metrics(rendered=len(todo) - failures, failed=failures, mode=mode)
     if todo and failures == len(todo):
         raise RenderError("every clip failed to render — see the job log for each error")
@@ -159,6 +163,7 @@ def stage_validate(ctx: JobContext) -> None:
         rendered = RenderedFile(Path(cfg["path"]), Path(cfg["cut_path"]), ResolvedLayout.model_validate(cfg["layout"]),
                                 cfg["expected_ms"], cfg["width"], cfg["height"], cfg["fps"], 0.0)  # fmt: skip
         validation = validate_render(spec, rendered)
+        note: tuple[str, str] = ("", "info")
         with session_scope() as s:
             row = s.get(Render, render.id)
             clip = s.get(Clip, render.clip_id)
@@ -170,24 +175,25 @@ def stage_validate(ctx: JobContext) -> None:
                 if mode == "final":
                     clip.render_status = "failed"
                     clip.validation = validation.model_dump()
-                ctx.log(f"clip {clip.rank} invalide : {', '.join(validation.failures)}", "error", details=validation.details)
-                continue
-            segments, _ = load_segments(s, project.source_id)
-            stem = f"{clip.rank:02d}_{slugify(clip.title)}"
-            files = publish_export(
-                ctx.settings, spec, rendered, validation, project_id=project.id, stem=stem,
-                metadata=_clip_metadata(ctx, clip, project, segments, validation.model_dump(), cfg["layout"]),
-                extra_copy_dir=ctx.runtime.export_dir if mode == "final" else None,
-            )  # fmt: skip
-            ids = replace_assets(s, ctx.settings, clip.id, files)
-            row.status = "validated"
-            row.output_asset_id = ids.get("export") or ids.get("preview")
-            if mode == "final":
-                clip.render_status = "rendered"
-                clip.validation = validation.model_dump()
-            valid += 1
-            ctx.log(f"clip {clip.rank} validé : {validation.details.get('duration_ms')} ms, {validation.details.get('frames')} images, "
-                    f"décalage audio {validation.details.get('audio_offset_ms')} ms")  # fmt: skip
+                note = (f"clip {clip.rank} invalide : {', '.join(validation.failures)} — {validation.details}", "error")
+            else:
+                segments, _ = load_segments(s, project.source_id)
+                stem = f"{clip.rank:02d}_{slugify(clip.title)}"
+                files = publish_export(
+                    ctx.settings, spec, rendered, validation, project_id=project.id, stem=stem,
+                    metadata=_clip_metadata(ctx, clip, project, segments, validation.model_dump(), cfg["layout"]),
+                    extra_copy_dir=ctx.runtime.export_dir if mode == "final" else None,
+                )  # fmt: skip
+                ids = replace_assets(s, ctx.settings, clip.id, files)
+                row.status = "validated"
+                row.output_asset_id = ids.get("export") or ids.get("preview")
+                if mode == "final":
+                    clip.render_status = "rendered"
+                    clip.validation = validation.model_dump()
+                valid += 1
+                note = (f"clip {clip.rank} validé : {validation.details.get('duration_ms')} ms, {validation.details.get('frames')} images, "
+                        f"décalage audio {validation.details.get('audio_offset_ms')} ms", "info")  # fmt: skip
+        ctx.log(*note)
     ctx.metrics(validated=valid, invalid=len(pending) - valid)
     if _job_payload(ctx).get("clip_id") is None:
         write_performance_report(ctx)

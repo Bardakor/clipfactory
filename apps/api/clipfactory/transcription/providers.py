@@ -87,7 +87,7 @@ class MlxWhisperTranscriber:
         segments: list[Segment] = []
         for seg in result.get("segments", []):
             text = (seg.get("text") or "").strip()
-            if not text:
+            if not any(ch.isalnum() for ch in text):  # empty, or punctuation-only noise such as "..."
                 continue
             # Whisper's own "this is probably not speech" signal: drop instead of inventing words.
             if seg.get("no_speech_prob", 0) > 0.6 and seg.get("avg_logprob", 0) < -1.0:

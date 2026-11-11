@@ -31,11 +31,21 @@ def build_captions(segments: list[Segment], start_ms: int, end_ms: int, style: s
         if seg.end_ms <= start_ms or seg.start_ms >= end_ms:
             continue
         if seg.words:
+            first_in_segment = True
             for w in seg.words:
                 mid = (w.s + w.e) // 2
                 if not (start_ms <= mid < end_ms) or not w.w.strip():
                     continue
                 s, e = clamp_ms(w.s - start_ms, 0, duration), clamp_ms(w.e - start_ms, 0, duration)
+                if not first_in_segment and not w.w[0].isspace():
+                    # Whisper splits elisions ("c" + "'est", "l" + "'agent"): a piece with no leading
+                    # space belongs to the previous word, and takes its end time.
+                    previous = tokens[-1]
+                    previous.text += w.w.strip()
+                    previous.endMs = max(previous.endMs, e)
+                    previous.timestampMs = (previous.startMs + previous.endMs) // 2
+                    continue
+                first_in_segment = False
                 tokens.append(Caption(text=" " + w.w.strip(), startMs=s, endMs=max(e, s + 1), timestampMs=(s + e) // 2, confidence=w.p))
         else:
             measured_all = False

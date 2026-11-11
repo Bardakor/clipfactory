@@ -37,17 +37,25 @@ def stage_import(ctx: JobContext) -> None:
             max_bytes=int(ctx.settings.clipfactory_max_upload_gb * 1024**3),
             on_progress=lambda f: ctx.progress(0.95 * f, "téléchargement"), should_stop=ctx.should_stop,
         )  # fmt: skip
+        duplicate = False
         with session_scope() as s:
             source = s.get(Source, inputs.source_id)
             try:
                 final = ingest.finalize_source(s, ctx.settings, source, path)
-            except MediaError:
+            except MediaError as exc:
                 path.unlink(missing_ok=True)
-                source.status = "failed"
-                raise
-            if final.id != source.id:  # same video already imported: reuse it and its caches
-                s.get(Project, ctx.project_id).source_id = final.id
-                ctx.cache_hit("source déjà importée (même empreinte)")
+                failure = exc
+            else:
+                failure = None
+                if final.id != source.id:  # same video already imported: reuse it and its caches
+                    s.get(Project, ctx.project_id).source_id = final.id
+                    duplicate = True
+        if failure is not None:
+            with session_scope() as s:
+                s.get(Source, inputs.source_id).status = "failed"
+            raise failure
+        if duplicate:
+            ctx.cache_hit("source déjà importée (même empreinte)")
         inputs = load_inputs(ctx)
     if inputs.source_path is None or not inputs.source_path.exists():
         raise IngestError("the source file is no longer on disk")

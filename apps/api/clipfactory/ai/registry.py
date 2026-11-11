@@ -202,14 +202,15 @@ class ModelRegistry:
         usable = [m for m in dict.fromkeys(wanted) if m in catalogue and modality in catalogue[m].input_modalities]
         if usable:
             return usable
+        # Nothing preferred is usable: take the cheapest capable model, favouring structured-output support.
         capable = [
             m for m in catalogue.values()
-            if modality in m.input_modalities and m.structured and m.prompt_price > 0 and m.context_length >= 100_000
+            if modality in m.input_modalities and m.prompt_price > 0 and m.context_length >= 32_000
             and ":" not in m.id and not m.id.startswith("~")
         ]  # fmt: skip
         if not capable:
             raise AIModelUnavailable(f"no OpenRouter model accepts {modality} input for {task}", task=task)
-        return [min(capable, key=lambda m: m.prompt_price + m.completion_price).id]
+        return [min(capable, key=lambda m: (not m.structured, m.prompt_price + m.completion_price)).id]
 
     def routing(self, runtime: RuntimeSettings, preset: str | None = None) -> dict[str, list[str]]:
         out: dict[str, list[str]] = {}

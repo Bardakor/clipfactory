@@ -114,7 +114,7 @@ def stage_analyze(ctx: JobContext) -> None:
         s.expunge_all()
     signals, _cuts, _silences = _signals(ctx, inputs, segments)
     ectx = _editorial_context(inputs)
-    analyst, gateway = build_analyst(ctx)
+    analyst, gateway = build_analyst(ctx, announce=True)
 
     # 1 ── broad discovery: more candidates than clips requested
     pool_target = max(p.clip_count + 4, math.ceil(p.clip_count * budget.pool_factor))
