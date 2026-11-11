@@ -45,7 +45,7 @@ ever simulated in normal operation.
 ## Using it
 
 1. **Nouveau projet** — paste a YouTube URL (you must confirm you own or may reuse the video) or drop a file
-   (MP4, MOV, MKV, WebM). Pick a profile (GTA RP, GTA Action, Gaming général), how many clips, length range,
+   (MP4, MOV, MKV, WebM). Pick a profile (GTA 6, GTA RP, GTA Action, Gaming général), how many clips, length range,
    quality threshold, AI preset, subtitle style and layout. Optional free-text instructions steer the editor model.
 2. **Traitement** — watch the nine stages with measured progress, the activity log, real cost so far, and
    cancel / resume controls. A failed job keeps its finished stages; *Reprendre* restarts at the failed one.
@@ -118,7 +118,7 @@ ranked in the top six; windows found from signals alone mostly did not. Scores t
 for 8+/10 to be rare), which is why the default quality threshold is 45: at 55 this session gave 2 clips, at 40 it
 gave 4. On the synthetic fixture the vision model correctly reported a colour test card instead of inventing action.
 
-**Still to do with your own footage:** a French GTA RP VOD, a stream with a facecam, a multi-hour source, and the
+**Still to do with your own footage:** real GTA VI gameplay (see Known limitations), a French GTA RP VOD, a stream with a facecam, a multi-hour source, and the
 Qualité max preset.
 
 ## Measured performance
@@ -155,6 +155,10 @@ measured yet.
 
 ## Known limitations
 
+- **The GTA 6 profile has never seen GTA VI footage.** It was written before the game's release (19 November
+  2026, PS5 / Xbox Series). Its game context, hashtags and transcription vocabulary are real (official names; on
+  synthesised speech the vocabulary took name errors from 6 to 0 in English and from 6 to 1 in French), but its
+  rubric weights and the default quality threshold of 45 are starting points to re-tune on the first real sessions.
 - **Language is detected per ~10-minute chunk**, not per sentence. Mixed FR/EN speech is transcribed correctly in
   practice, but every segment in a chunk carries the chunk's language tag.
 - **No speaker diarisation** and **no sound-event classifier** (laughter, gunshots): audio events are named for

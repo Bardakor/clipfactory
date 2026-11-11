@@ -15,6 +15,16 @@ DEFAULT_VOCABULARY = [
     "Sandy Shores", "Paleto", "Vinewood", "staff", "wipe", "freekill", "HRP", "carkill",
 ]  # fmt: skip
 
+# Extra spellings for one content profile, put in front of the user's vocabulary for that project only, so
+# transcripts of other profiles keep their cache key. Names as published by Rockstar Games for GTA VI.
+PROFILE_VOCABULARY: dict[str, list[str]] = {
+    "gta6": [
+        "GTA 6", "GTA VI", "Vice City", "Leonida", "Leonida Keys", "Grassrivers", "Port Gellhorn", "Ambrosia",
+        "Mount Kalaga", "Jason", "Lucia", "Cal Hampton", "Boobie Ike", "Dre'Quan", "Real Dimez", "Raul Bautista",
+        "Brian Heder",
+    ],
+}  # fmt: skip
+
 # Applied after transcription, whole-word and case-insensitive. Keys are what
 # Whisper tends to write; values are the spelling we want.
 DEFAULT_CORRECTIONS = {
@@ -75,3 +85,8 @@ def save_runtime(session: Session, value: RuntimeSettings) -> RuntimeSettings:
     else:
         session.add(AppSetting(key=_KEY, value=data))
     return value
+
+
+def with_profile_vocabulary(runtime: RuntimeSettings, profile: str) -> RuntimeSettings:
+    extra = PROFILE_VOCABULARY.get(profile)
+    return runtime.model_copy(update={"vocabulary": extra + runtime.vocabulary}) if extra else runtime

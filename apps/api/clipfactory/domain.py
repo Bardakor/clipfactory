@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-Profile = Literal["gta_rp", "gta_action", "general", "custom"]
+Profile = Literal["gta6", "gta_rp", "gta_action", "general", "custom"]
 Preset = Literal["fast", "balanced", "max_quality", "custom"]
 SubtitleStyle = Literal["viral", "clean", "gaming"]
 Layout = Literal["auto", "full", "crop", "split", "dynamic", "manual"]
@@ -73,7 +73,7 @@ class SubtitleOptions(BaseModel):
 
 
 class ProjectSettings(BaseModel):
-    profile: Profile = "gta_rp"
+    profile: Profile = "gta6"
     clip_count: int = Field(default=8, ge=1, le=30)
     min_len_s: int = Field(default=15, ge=5, le=120)
     max_len_s: int = Field(default=90, ge=10, le=180)

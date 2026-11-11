@@ -17,6 +17,9 @@ RUBRIC = ("hook", "comprehensibility", "surprise", "humor", "emotion", "narrativ
 
 # What each content profile cares about. Weights are relative; they are normalised at use.
 PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
+    # Starting point, not measured: no GTA VI footage existed when this was written. Tune it in the settings.
+    "gta6": {"hook": 1.4, "comprehensibility": 1.1, "surprise": 1.5, "humor": 1.3, "emotion": 1.2,
+             "narrative": 0.9, "pacing": 1.2, "payoff": 1.3, "originality": 1.3},
     "gta_rp": {"hook": 1.2, "comprehensibility": 1.3, "surprise": 1.0, "humor": 1.8, "emotion": 0.9,
                "narrative": 1.5, "pacing": 0.8, "payoff": 1.3, "originality": 0.9},
     "gta_action": {"hook": 1.5, "comprehensibility": 1.0, "surprise": 1.5, "humor": 0.8, "emotion": 1.4,
@@ -26,6 +29,12 @@ PROFILE_WEIGHTS: dict[str, dict[str, float]] = {
 PROFILE_WEIGHTS["custom"] = PROFILE_WEIGHTS["general"]
 
 PROFILE_FOCUS = {
+    "gta6": "Grand Theft Auto VI (2026, console footage; this is not GTA V and there is no FiveM roleplay). Set in the "
+            "state of Leonida: Vice City, Leonida Keys, Grassrivers, Port Gellhorn, Ambrosia, Mount Kalaga. The playable "
+            "protagonists are Jason Duval and Lucia Caminos; use a character name only when the transcript or the "
+            "screen confirms it. Look for: open-world chaos and physics, police chases and escapes, crashes, "
+            "shootouts, absurd NPC and world interactions, surprising details or discoveries in the new game, strong "
+            "streamer reactions, mission moments with a clear payoff.",
     "gta_rp": "GTA roleplay: funny dialogue, absurd interactions, RP misunderstandings, character conflict, "
               "unexpected decisions, voice reactions, funny consequences, narrative coherence.",
     "gta_action": "GTA action: chases, shootouts, crashes, close calls, surprising gameplay, dramatic escapes, "

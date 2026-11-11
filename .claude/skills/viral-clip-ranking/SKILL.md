@@ -29,9 +29,10 @@ score     = 100 · clamp(base − penalties) + feedback_adjustment(±5)
 
 ## Profiles
 
-`PROFILE_WEIGHTS`: GTA RP favours humour, narrative, comprehensibility; GTA Action favours hook, surprise,
+`PROFILE_WEIGHTS`: GTA 6 (default; unmeasured starting point) favours surprise, hook, originality; GTA RP favours humour, narrative, comprehensibility; GTA Action favours hook, surprise,
 emotion, pacing. Users override per criterion in Settings (`runtime.profile_weights`). The profile's focus text
 (`PROFILE_FOCUS`) and the user's free-text instructions go into every editorial prompt.
+A profile may also add transcription spellings (`settings_store.PROFILE_VOCABULARY`), applied to its projects only.
 
 ## Selection
 

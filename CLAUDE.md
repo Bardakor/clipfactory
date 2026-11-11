@@ -1,6 +1,6 @@
 # CLIPFACTORY
 
-Local-first studio that turns long gaming footage (GTA V / GTA RP / FiveM, streamer VODs) into ranked, captioned
+Local-first studio that turns long gaming footage (GTA VI, GTA V / GTA RP / FiveM, streamer VODs) into ranked, captioned
 vertical clips. One source video in, several validated 1080×1920 MP4s out. Dashboard language: French.
 
 Read `ARCHITECTURE.md` before changing how stages, caching or the AI gateway work.

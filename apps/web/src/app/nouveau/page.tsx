@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils";
 
 const schema = z
   .object({
-    profile: z.enum(["gta_rp", "gta_action", "general", "custom"]),
+    profile: z.enum(["gta6", "gta_rp", "gta_action", "general", "custom"]),
     clip_count: z.number().int().min(1).max(30),
     min_len_s: z.number().int().min(5).max(120),
     max_len_s: z.number().int().min(10).max(180),
@@ -65,7 +65,7 @@ export default function NewProjectPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     values: {
-      profile: "gta_rp",
+      profile: "gta6",
       clip_count: 8,
       min_len_s: 15,
       max_len_s: 90,

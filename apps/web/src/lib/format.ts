@@ -85,6 +85,7 @@ export const RENDER_STATUS_LABELS: Record<string, string> = {
 export const APPROVAL_LABELS: Record<string, string> = { pending: "À revoir", approved: "Approuvé", rejected: "Rejeté" };
 
 export const PROFILE_LABELS: Record<string, string> = {
+  gta6: "GTA 6",
   gta_rp: "GTA RP",
   gta_action: "GTA Action",
   general: "Gaming général",

@@ -17,7 +17,7 @@ from clipfactory.media import ingest
 from clipfactory.render import captions as cap
 from clipfactory.render.layout import crop_centre, resolve_layout
 from clipfactory.render.renderer import slugify
-from clipfactory.settings_store import AudioDetectorSettings
+from clipfactory.settings_store import AudioDetectorSettings, RuntimeSettings, with_profile_vocabulary
 from clipfactory.transcription.service import apply_corrections, correct_words
 
 # ── timestamps ──────────────────────────────────────────────────────────────
@@ -150,6 +150,25 @@ def test_rubric_weights_and_profiles():
     assert ranking.editorial_from_rubric(funny, weights) > ranking.editorial_from_rubric(funny, ranking.rubric_weights("gta_action"))
     overridden = ranking.rubric_weights("gta_rp", {"gta_rp": {"humor": 0.0}})
     assert overridden["humor"] == 0
+
+
+def test_every_profile_is_fully_defined():
+    from typing import get_args
+
+    from clipfactory.domain import Profile
+    from clipfactory.pipeline.stages_editorial import DEFAULT_HASHTAGS
+
+    for profile in get_args(Profile):
+        assert set(ranking.PROFILE_WEIGHTS[profile]) == set(ranking.RUBRIC), profile
+        assert ranking.PROFILE_FOCUS[profile] and DEFAULT_HASHTAGS[profile], profile
+
+
+def test_profile_vocabulary_only_touches_its_own_profile():
+    runtime = RuntimeSettings()
+    assert with_profile_vocabulary(runtime, "gta_rp") is runtime  # same transcript cache key as before
+    gta6 = with_profile_vocabulary(runtime, "gta6").vocabulary
+    assert gta6[:2] == ["GTA 6", "GTA VI"] and "Port Gellhorn" in gta6 and gta6[-len(runtime.vocabulary) :] == runtime.vocabulary
+    assert len(", ".join(gta6)) <= 800  # the whole list fits in the transcription prompt
 
 
 def test_selection_deduplicates_overlap_and_text():

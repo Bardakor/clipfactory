@@ -2,7 +2,7 @@
 
 export type ApiErrorBody = { code: string; message: string; retryable: boolean; details: Record<string, unknown> };
 
-export type Profile = "gta_rp" | "gta_action" | "general" | "custom";
+export type Profile = "gta6" | "gta_rp" | "gta_action" | "general" | "custom";
 export type Preset = "fast" | "balanced" | "max_quality" | "custom";
 export type SubtitleStyle = "viral" | "clean" | "gaming";
 export type Layout = "auto" | "full" | "crop" | "split" | "dynamic" | "manual";

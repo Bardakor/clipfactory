@@ -20,6 +20,7 @@ from clipfactory.models import AudioEvent, InferenceUsage, Project, Source, Visu
 from clipfactory.pipeline.common import audio_path, events_dir, load_inputs
 from clipfactory.pipeline.context import JobContext
 from clipfactory.render.layout import detect_facecam
+from clipfactory.settings_store import with_profile_vocabulary
 from clipfactory.timeutil import clock
 from clipfactory.transcription import service as transcription
 from clipfactory.transcription.providers import build_transcriber
@@ -84,10 +85,11 @@ def stage_transcribe(ctx: JobContext) -> None:
     if not wav.exists():
         ctx.log("pas d'audio : aucune transcription")
         return
-    transcriber = build_transcriber(ctx.settings, ctx.runtime)
+    runtime = with_profile_vocabulary(ctx.runtime, inputs.settings.profile)
+    transcriber = build_transcriber(ctx.settings, runtime)
     with session_scope() as s:
         source = s.get(Source, inputs.source_id)
-        key = transcription.transcript_cache_key(source, transcriber, inputs.settings.language, ctx.runtime)
+        key = transcription.transcript_cache_key(source, transcriber, inputs.settings.language, runtime)
         existing = transcription.find_transcript(s, inputs.source_id, key)
         if existing is not None:
             ctx.cache_hit(f"transcription ({existing.provider}, {len(existing.segments)} segments)")
@@ -98,7 +100,7 @@ def stage_transcribe(ctx: JobContext) -> None:
         ctx.log("ADAPTATEUR DE TEST : transcription simulée, aucune reconnaissance vocale réelle")
     ctx.log(f"transcription avec {transcriber.name} ({transcriber.model})")
     result = transcription.run_transcription(
-        ctx.settings, source, wav, transcriber, ctx.runtime, language=inputs.settings.language, cache_key=key,
+        ctx.settings, source, wav, transcriber, runtime, language=inputs.settings.language, cache_key=key,
         on_progress=ctx.progress, should_stop=ctx.should_stop,
     )  # fmt: skip
     with session_scope() as s:

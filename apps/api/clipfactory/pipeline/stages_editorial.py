@@ -25,6 +25,7 @@ from clipfactory.render.captions import build_captions
 from clipfactory.timeutil import clamp_ms, clock, s_to_ms
 
 DEFAULT_HASHTAGS = {
+    "gta6": ["#gta6", "#gtavi", "#vicecity", "#gaming"],
     "gta_rp": ["#gtarp", "#gta5", "#fivem", "#gaming"],
     "gta_action": ["#gta5", "#gtaonline", "#gaming", "#clips"],
     "general": ["#gaming", "#clips", "#stream"],

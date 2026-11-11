@@ -170,3 +170,31 @@ def test_real_transcription(settings, tmp_path):
     words = [w for s in segments for w in s.words]
     assert all(a.s <= b.s for a, b in zip(words, words[1:], strict=False))  # monotonic real timestamps
     assert words[-1].e <= 8000
+
+
+@pytest.mark.skipif(shutil.which("say") is None, reason="needs macOS speech synthesis to create real speech")
+def test_gta6_profile_spells_game_names_in_real_transcription(settings, monkeypatch, tmp_path):
+    """REAL speech recognition through the pipeline; only the AI analyst is the test adapter.
+    Without the profile's vocabulary Whisper wrote "Grass Rivers" and "Mount Caliga" for this sentence."""
+    pytest.importorskip("mlx_whisper")
+    monkeypatch.setenv("CLIPFACTORY_AI_ADAPTER", "fake")
+    config.get_settings.cache_clear()
+    db.reset_engine()
+    from clipfactory.api.app import app
+
+    aiff, video = tmp_path / "s.aiff", tmp_path / "gta6.mp4"
+    line = "We just left Port Gellhorn. Next stop Vice City, then the Leonida Keys, Grassrivers, Ambrosia and Mount Kalaga."
+    if subprocess.run(["say", "-v", "Samantha", "-o", str(aiff), line]).returncode != 0:
+        subprocess.run(["say", "-o", str(aiff), line], check=True)
+    subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-f", "lavfi", "-i", "testsrc2=size=640x360:rate=30", "-i", str(aiff),
+                    "-shortest", "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-c:a", "aac", str(video)], check=True)  # fmt: skip
+
+    with TestClient(app) as client:
+        source = client.post("/api/sources/upload", params={"filename": "gta6.mp4"}, content=video.read_bytes()).json()["source"]
+        created = client.post("/api/projects", json={"source_id": source["id"], "settings": {"language": "en", "preset": "fast"}})
+        assert created.json()["project"]["settings"]["profile"] == "gta6"  # the default profile
+        job_id = claim_next_job("test-worker")
+        assert run_job(config.get_settings(), job_id, threading.Event()) == "succeeded", client.get(f"/api/jobs/{job_id}").json()
+        transcript = client.get(f"/api/sources/{source['id']}/transcript").json()
+        text = " ".join(s["text"] for s in transcript["segments"])
+        assert "Grassrivers" in text and "Mount Kalaga" in text and "Port Gellhorn" in text, text
