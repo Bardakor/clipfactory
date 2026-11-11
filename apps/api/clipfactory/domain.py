@@ -77,7 +77,8 @@ class ProjectSettings(BaseModel):
     clip_count: int = Field(default=8, ge=1, le=30)
     min_len_s: int = Field(default=15, ge=5, le=120)
     max_len_s: int = Field(default=90, ge=10, le=180)
-    quality_threshold: int = Field(default=55, ge=0, le=100)
+    # 45: on the first real GTA RP session the strongest clips scored 57–61 and decent ones 43–45.
+    quality_threshold: int = Field(default=45, ge=0, le=100)
     preset: Preset = "balanced"
     subtitle_style: SubtitleStyle = "viral"
     subtitle_options: SubtitleOptions = SubtitleOptions()

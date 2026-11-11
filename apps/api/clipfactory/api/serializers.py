@@ -104,7 +104,8 @@ def project_out(s: Session, project: Project, *, detail: bool = False) -> dict:
         out["clips"] = [clip_out(s, c) for c in sorted(project.clips, key=lambda c: c.rank)]
         out["render_jobs"] = [job_out(s, j) for j in jobs if j.kind == "render" and j.status in ("queued", "running")]
         out["candidates"] = [
-            {"id": c.id, "start_ms": c.start_ms, "end_ms": c.end_ms, "origins": c.origins, "title": c.title,
+            {"id": c.id, "start_ms": c.start_ms, "end_ms": c.end_ms, "origins": c.origins,
+             "title": c.title or (c.evidence or {}).get("main_event") or "",
              "event_type": c.event_type, "final_score": c.final_score, "heuristic_score": c.heuristic_score,
              "multimodal_score": c.multimodal_score, "editorial_score": c.editorial_score, "penalties": c.penalties,
              "status": c.status, "reject_reason": c.reject_reason, "justification": c.justification}  # fmt: skip

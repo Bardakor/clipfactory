@@ -56,6 +56,16 @@ for the type, shrunk towards the user's overall acceptance rate. That is a trans
 dress it up as learning. The `feedback` table is append-only and snapshots score, bounds, layout, style, reason and
 optional manually entered social metrics so a real ranker can be trained and evaluated later.
 
+## What real footage showed (one 20-minute police-RP session, Équilibré)
+
+Strong clips scored 57–61, decent ones 43–45, radio chatter and driving 5–35. Four of the five moments proposed
+from the transcript landed in the top six; signal-only windows rarely did. The scale tops out near 60 because the rubric
+makes 8+/10 rare and penalties subtract ~10–15 points — hence the default threshold of 45. Treat this as one data
+point, not a calibration.
+
+`rank_briefs` is the cache key of the ranking calls. It reads only discovery-time fields; the ranking stage must
+never write to anything it reads, or every re-rank is paid again (this happened once, and has a regression test).
+
 ## Changing things safely
 
 - Weights and thresholds: change, then run `uv run pytest tests/test_units.py -k "score or selection or rubric or feedback"`.

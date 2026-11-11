@@ -229,12 +229,30 @@ def _mean_confidence(segments: list[Segment], start_ms: int, end_ms: int) -> flo
     return sum(values) / len(values) if values else None
 
 
+def rank_briefs(rows: list[Candidate], segments: list[Segment]) -> list[ClipBrief]:
+    """What the editorial model is shown for each candidate.
+
+    Built only from discovery-time data (bounds, transcript, measured features, visual analysis, the
+    proposed moment). Nothing the ranking stage itself writes may appear here: these briefs are the
+    cache key of the ranking calls, so re-ranking with new thresholds or weights costs nothing.
+    """
+    return [
+        ClipBrief(
+            candidate_id=c.id, duration_s=(c.end_ms - c.start_ms) / 1000,
+            transcript=cand.transcript_excerpt(segments, c.start_ms, c.end_ms, relative_to=c.start_ms),
+            features=(c.evidence or {}).get("features"), visual=(c.evidence or {}).get("visual"),
+            moment={"title": c.title, **(c.structure or {})} if c.title else None,
+        )  # fmt: skip
+        for c in rows
+    ]
+
+
 def stage_rank(ctx: JobContext) -> None:
     inputs = load_inputs(ctx)
     p = inputs.settings
     with session_scope() as s:
         segments, _ = load_segments(s, inputs.source_id)
-        rows = list(s.scalars(select(Candidate).where(Candidate.project_id == ctx.project_id)))
+        rows = list(s.scalars(select(Candidate).where(Candidate.project_id == ctx.project_id).order_by(Candidate.start_ms, Candidate.id)))
         history = [
             (f.event_type or "unknown", f.decision)
             for f in s.scalars(select(Feedback).where(Feedback.profile == p.profile))
@@ -251,15 +269,7 @@ def stage_rank(ctx: JobContext) -> None:
     analyst, gateway = build_analyst(ctx)
     scores = {}
     if analyst is not None:
-        briefs = [
-            ClipBrief(
-                candidate_id=c.id, duration_s=(c.end_ms - c.start_ms) / 1000,
-                transcript=cand.transcript_excerpt(segments, c.start_ms, c.end_ms, relative_to=c.start_ms),
-                features=(c.evidence or {}).get("features"), visual=(c.evidence or {}).get("visual"),
-                moment={"title": c.title, **(c.structure or {})} if c.title else None,
-            )  # fmt: skip
-            for c in rows
-        ]
+        briefs = rank_briefs(rows, segments)
         ctx.progress(0.2, f"notation éditoriale de {len(briefs)} candidats")
         scores = analyst.score(briefs, _editorial_context(inputs))
         ctx.log(f"notation éditoriale reçue pour {len(scores)}/{len(rows)} candidats")
@@ -298,9 +308,10 @@ def stage_rank(ctx: JobContext) -> None:
                             "rubric": score.model_dump(exclude={"candidate_id", "justification", "main_event"}) if score else None,
                             **result.extra}  # fmt: skip
             if score:
+                # Ranking output goes to its own fields. It must never overwrite what rank_briefs reads
+                # (title, structure, features, visual), or the next run would miss the cache and pay again.
                 row.justification = score.justification
-                row.title = row.title or score.main_event
-                row.structure = {**(row.structure or {}), "main_event": score.main_event}
+                row.evidence = {**row.evidence, "main_event": score.main_event}
             else:
                 row.justification = _heuristic_justification(item.features, item.start_ms)
             if item.candidate_id in selection.selected:
@@ -343,7 +354,7 @@ def stage_refine(ctx: JobContext) -> None:
         return ClipBrief(
             candidate_id=c.id, duration_s=(end - start) / 1000,
             transcript=cand.transcript_excerpt(segments, start, end, relative_to=start),
-            moment={"title": c.title, "main_event": (c.structure or {}).get("main_event")},
+            moment={"title": c.title, "main_event": (c.evidence or {}).get("main_event")},
             context_before=cand.transcript_excerpt(segments, start - 6000, start, relative_to=start) if with_context else "",
             context_after=cand.transcript_excerpt(segments, end, end + 6000, relative_to=start) if with_context else "",
         )  # fmt: skip
@@ -393,10 +404,10 @@ def stage_refine(ctx: JobContext) -> None:
             captions, precision = build_captions(segments, start, end, p.subtitle_style)
             copy = social.get(c.id)
             evidence = c.evidence or {}
-            main_event = (c.structure or {}).get("main_event") or c.title
+            main_event = evidence.get("main_event") or c.title
             first_words = " ".join(" ".join(sg.text for sg in segments if sg.end_ms > start and sg.start_ms < end).split()[:9])
             # No model title and nothing spoken (pure gameplay): name the clip by where it is in the source.
-            fallback_title = c.title or first_words or f"Moment à {clock(start)}"
+            fallback_title = c.title or main_event or first_words or f"Moment à {clock(start)}"
             s.add(Clip(
                 project_id=ctx.project_id, candidate_id=c.id, rank=rank, start_ms=start, end_ms=end,
                 original_start_ms=start, original_end_ms=end, score=c.final_score or 0,

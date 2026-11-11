@@ -383,3 +383,24 @@ def test_misc_helpers():
     stats = speech_stats([_segment(2_000, "un deux trois")], 10_000)
     assert stats.active[2] and not stats.active[8]
     assert Caption(text=" a", startMs=0, endMs=1).pageBreakAfter is None
+
+
+def test_rank_briefs_ignore_what_ranking_writes():
+    """Regression (found on a real paid run): ranking rewrote candidate titles, which changed its own
+    input, so re-ranking with a new threshold missed the cache and paid for the same calls again."""
+    from clipfactory.models import Candidate
+    from clipfactory.pipeline.stages_editorial import rank_briefs
+
+    segments = [_segment(10_000, "attends il y a un policier juste devant")]
+    rows = [
+        Candidate(id="a", start_ms=9_000, end_ms=20_000, origins=["signals"], title="", evidence={"features": {"peak": 0.9}}),
+        Candidate(id="b", start_ms=9_500, end_ms=21_000, origins=["transcript_llm"], title="Le policier", structure={"setup": "s", "payoff": "p"},
+                  evidence={"features": {"peak": 0.8}, "visual": {"event_type": "police_encounter"}}),
+    ]  # fmt: skip
+    before = [b.render() for b in rank_briefs(rows, segments)]
+    for row in rows:  # everything stage_rank and stage_refine store on a candidate
+        row.evidence = {**row.evidence, "main_event": "Un événement", "components": {"editorial": 0.7}, "rubric": {"hook": 8},
+                        "basis": "ai", "refinement": ["note"], "refined": [1, 2]}  # fmt: skip
+        row.justification, row.final_score, row.editorial_score = "Parce que.", 61.0, 0.7
+        row.penalties, row.status, row.reject_reason, row.event_type = {"dead_time": 0.1}, "selected", None, "police_encounter"
+    assert [b.render() for b in rank_briefs(rows, segments)] == before

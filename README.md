@@ -26,9 +26,15 @@ Requirements: macOS on Apple Silicon, Node 20+, pnpm, [uv](https://docs.astral.s
 
 ### Cost
 
-The fixture run above cost under 2 cents on Rapide. A model's reasoning tokens are billed as output, and OpenRouter
-refuses a request when the account cannot cover its `max_tokens`, so keep a small balance rather than an exact one.
-*Paramètres* has a per-job cost alert and an optional hard cap.
+Measured: **$0.28 for a 20-minute video on Équilibré** with 6 clips requested (21 requests) — keyframe
+understanding $0.13, editorial ranking $0.11, transcript analysis $0.04, critique and social copy $0.01. The
+one-minute fixture on Rapide cost under 2 cents. Vision and ranking scale with the number of clips requested;
+transcript analysis scales with duration. Changing the threshold, clip count or profile weights afterwards re-uses
+the cached answers and costs nothing.
+
+A model's reasoning tokens are billed as output, and OpenRouter refuses a request when the account cannot cover its
+`max_tokens`, so keep a small balance rather than an exact one. *Paramètres* has a per-job cost alert and an
+optional hard cap.
 
 ### Without an OpenRouter key
 
@@ -95,24 +101,25 @@ banner, and excluded from dashboard statistics.
 | Dashboard, gallery, editor, re-render, ZIP, feedback | browser (manual + Playwright) | ✅ |
 | Restart persistence and job recovery | automated + a real restart mid-queue | ✅ |
 | OpenRouter request/response handling, retries, fallbacks, budget | mocked HTTP + live calls | ✅ |
-| **Real inference on the Rapide preset**: transcript analysis, keyframe understanding, editorial ranking, social copy | live OpenRouter, full pipeline on the synthetic FR/EN fixture (7 requests, $0.018 actual vs $0.019 estimated) | ✅ |
+| **Real inference, Rapide preset** | live OpenRouter, full pipeline on the synthetic FR/EN fixture (7 requests, $0.018) | ✅ |
+| **Real inference, Équilibré preset, on real GTA RP footage**: transcript analysis, keyframe understanding, editorial ranking (Claude Sonnet), final critique, social copy | a 20-minute CC-BY FiveM police-RP session from YouTube → 4 validated clips | ✅ |
 | Insufficient-credit handling | happened for real: the job stopped at once with OpenRouter's message, and resumed later | ✅ |
-| Équilibré and Qualité max presets (Claude models for ranking and critique) | — | ❌ not run: the account had about 4 cents of credit |
-| Final critique pass (off in Rapide) | mocked only | ⚠️ |
+| Re-ranking with new settings reuses paid answers | live: second run served from cache, $0, identical scores | ✅ |
+| Qualité max preset, real video input to a model | — | ❌ not run |
 | OpenRouter speech-to-text provider | mocked HTTP only | ⚠️ |
-| Real video input to a model | — | ❌ not run |
-| Editorial quality on real GTA footage | — | ❌ not evaluated |
-| Sources longer than a few minutes | — | ❌ not run (design is streaming/chunked; untested at 3 h) |
+| Editorial quality | one English police-RP session, judged by reading the justifications — not a systematic evaluation, and no French RP footage yet | ⚠️ |
+| Facecam split, smart crop | not exercised: the test footage had no facecam | ❌ |
+| Sources longer than 20 minutes | — | ❌ not run (design is streaming/chunked; untested at 3 h) |
 
-On the fixture the live run behaved as intended: it proposed the two real exchanges (the police-car crash and the
-"arrested for a sandwich" line), and the vision model reported that the frames were a colour test card rather than
-gameplay, lowering the visual score instead of inventing action. One observation to watch on real footage: the
-small Rapide model graded two candidates with the same test-card picture very differently.
+**What the real GTA RP run showed.** From 24 candidates the ranking separated real moments (an armed suspect
+walking up to a police cruiser, a chaotic arrest at the Vanilla Unicorn: 57–61) from radio chatter and driving
+(5–35), with justifications quoting what is actually said. Four of the five moments proposed from the transcript
+ranked in the top six; windows found from signals alone mostly did not. Scores top out near 60 by design (the rubric asks
+for 8+/10 to be rare), which is why the default quality threshold is 45: at 55 this session gave 2 clips, at 40 it
+gave 4. On the synthetic fixture the vision model correctly reported a colour test card instead of inventing action.
 
-**To close the remaining gap:** add credit to the OpenRouter account (the Équilibré preset needs a few cents of
-headroom per request), then process one real 20–30 minute GTA RP VOD on *Équilibré* and check (1) clips are
-labelled **IA**, (2) justifications describe what actually happens, (3) *Coût réel* against your expectations,
-(4) `data/exports/<project>/performance.json`.
+**Still to do with your own footage:** a French GTA RP VOD, a stream with a facecam, a multi-hour source, and the
+Qualité max preset.
 
 ## Measured performance
 
@@ -129,9 +136,22 @@ video → 2 validated 1080×1920 clips in **82 s** (1.8× faster than real time)
 | Render (2 clips, 52 s of video) | 58.0 s | 0.9× real time |
 | Validation | 1.8 s | |
 
-Peak worker memory was ~550 MB (during transcription); Remotion's browser processes are separate. Each run writes
-these numbers to `data/exports/<project>/performance.json`. Multi-hour sources and runs with inference have not
-been measured yet.
+Peak worker memory was ~550 MB (during transcription); Remotion's browser processes are separate.
+
+Real GTA RP session with inference (20 min 18 s, 1080p60, 619 MB, Équilibré): **6 min 14 s** end to end for the
+first two clips, 3.3× faster than real time.
+
+| Stage | Time | Note |
+| --- | --- | --- |
+| Import (download + probe) | 46.8 s | |
+| Transcription | 83.2 s | 229 segments, ≈15× real time |
+| Signal detection | 36.6 s | ≈33× real time |
+| Analysis (2 transcript sections + 12 candidates with 8 keyframes each) | 95.4 s | |
+| Ranking (24 candidates), refinement + critique + social copy | 23.8 s | |
+| Render | 87.1 s for 78 s of clips | 0.9× real time; this is the stage that grows with the number of clips |
+
+Each run writes these numbers to `data/exports/<project>/performance.json`. Multi-hour sources have not been
+measured yet.
 
 ## Known limitations
 
@@ -155,7 +175,7 @@ been measured yet.
 
 ## Next steps
 
-1. Add the key, run the live tests and one real VOD (see above).
+1. Run your own footage: a French RP VOD, a facecam stream, a multi-hour source.
 2. Tune prompts and profile weights on real footage; use the reject reasons collected in `feedback`.
 3. Sound-event classification (CLAP or YAMNet) feeding the interest curve.
 4. Evaluate facecam detection and smart crop on real streams.

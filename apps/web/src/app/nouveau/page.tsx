@@ -69,7 +69,7 @@ export default function NewProjectPage() {
       clip_count: 8,
       min_len_s: 15,
       max_len_s: 90,
-      quality_threshold: 55,
+      quality_threshold: 45,
       preset: runtime.data?.preset ?? "balanced",
       subtitle_style: runtime.data?.subtitle_style ?? "viral",
       burn_subtitles: true,
