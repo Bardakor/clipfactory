@@ -1,0 +1,45 @@
+[project]
+name = "clipfactory-api"
+version = "0.1.0"
+description = "CLIPFACTORY API, pipeline and worker"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.115",
+  "uvicorn[standard]>=0.30",
+  "pydantic>=2.8",
+  "pydantic-settings>=2.4",
+  "sqlalchemy>=2.0.30",
+  "alembic>=1.13",
+  "httpx>=0.27",
+  "python-multipart>=0.0.9",
+  "numpy>=1.26",
+  "soundfile>=0.12",
+  "librosa>=0.10",
+  "opencv-python-headless>=4.10",
+  "mlx-whisper>=0.4.3",
+  "yt-dlp>=2026.8.19",
+  "psutil>=6.0",
+]
+
+[dependency-groups]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# E501: dense one-line constructor calls are kept readable by hand rather than wrapped.
+ignore = ["B008", "E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+  "slow: renders or transcribes real media",
+  "live: calls the real OpenRouter API (needs OPENROUTER_API_KEY)",
+]

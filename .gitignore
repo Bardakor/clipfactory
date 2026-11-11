@@ -1,0 +1,28 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# media + derived data (never committed)
+data/*
+!data/.gitkeep
+
+# python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# node
+node_modules/
+.next/
+out/
+dist/
+*.tsbuildinfo
+apps/renderer/.bundle/
+playwright-report/
+test-results/
+
+.DS_Store
+*.log
