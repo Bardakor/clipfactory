@@ -756,11 +756,17 @@ def _live_job(monkeypatch, synthetic_video, **project_settings) -> None:
 OBJECTION = "Rien de marquant ne se passe."
 
 
-def _final_check_rejects(monkeypatch) -> None:
-    monkeypatch.setattr(FakeAnalyst, "critique", lambda self, briefs, ctx: {
-        b.candidate_id: Critique(candidate_id=b.candidate_id, verdict="reject", issue=OBJECTION, start_offset_s=0, end_offset_s=0)
-        for b in briefs
-    })  # fmt: skip
+def _final_check_rejects(monkeypatch) -> list:
+    """The final check rejects every clip. Returns the list that fills with the briefs it is shown."""
+    shown = []
+
+    def critique(self, briefs, ctx):  # noqa: ANN001, ANN202
+        shown.extend(briefs)
+        return {b.candidate_id: Critique(candidate_id=b.candidate_id, verdict="reject", issue=OBJECTION, start_offset_s=0, end_offset_s=0)
+                for b in briefs}  # fmt: skip
+
+    monkeypatch.setattr(FakeAnalyst, "critique", critique)
+    return shown
 
 
 @pytest.mark.slow
@@ -782,6 +788,14 @@ def test_final_check_still_rejects_when_a_quality_threshold_is_set(settings, mon
     with session_scope() as s:
         assert s.scalars(select(Clip)).all() == []
         assert OBJECTION in [c.reject_reason for c in s.scalars(select(Candidate))]
+
+
+@pytest.mark.slow
+def test_final_check_is_not_shown_a_title_that_does_not_exist(settings, monkeypatch, synthetic_video):
+    monkeypatch.setattr(FakeAnalyst, "find_moments", lambda self, chunks, per_chunk, ctx: [])  # signals only: no title yet
+    shown = _final_check_rejects(monkeypatch)
+    _live_job(monkeypatch, synthetic_video, quality_threshold=1)
+    assert shown and all(value for b in shown for value in (b.moment or {}).values())
 
 
 @pytest.mark.slow

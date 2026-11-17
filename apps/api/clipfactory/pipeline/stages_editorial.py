@@ -376,10 +376,12 @@ def stage_refine(ctx: JobContext) -> None:
 
     def brief(c: Candidate, with_context: bool) -> ClipBrief:
         start, end, _ = bounds[c.id]
+        proposed = {"title": c.title, "main_event": (c.evidence or {}).get("main_event")}
         return ClipBrief(
             candidate_id=c.id, duration_s=(end - start) / 1000,
             transcript=cand.transcript_excerpt(segments, start, end, relative_to=start),
-            moment={"title": c.title, "main_event": (c.evidence or {}).get("main_event")},
+            # A moment found by signals has no title yet: an empty one would be read as a flaw of the clip.
+            moment={key: value for key, value in proposed.items() if value},
             context_before=cand.transcript_excerpt(segments, start - 6000, start, relative_to=start) if with_context else "",
             context_after=cand.transcript_excerpt(segments, end, end + 6000, relative_to=start) if with_context else "",
         )  # fmt: skip
