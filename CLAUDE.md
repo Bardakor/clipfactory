@@ -1,7 +1,8 @@
 # CLIPFACTORY
 
 Local-first studio that turns long gaming footage (GTA VI, GTA V / GTA RP / FiveM, streamer VODs) into ranked, captioned
-vertical clips. One source video in, several validated 1080×1920 MP4s out. Dashboard language: French.
+vertical clips. One source video in, several validated 1080×1920 MP4s out. It can also stay plugged into authorised
+Twitch channels and clip, while they are live, the moments their chat reacts to. Dashboard language: French.
 
 Read `ARCHITECTURE.md` before changing how stages, caching or the AI gateway work.
 
@@ -14,22 +15,23 @@ apps/api/        Python 3.12 — FastAPI, SQLite (WAL), worker, pipeline, AI gat
     pipeline/      runner (job state machine), context, stages_source / stages_editorial / stages_render
     media/         ffmpeg + ffprobe wrappers, ingest (upload, YouTube, Twitch), export validation, subprocess runner
     transcription/ providers (MLX Whisper, OpenRouter STT, fake) + chunked, checkpointed service
-    analysis/      audio + visual signal detection, candidates, refine (boundaries), ranking (ClipRanker)
+    analysis/      audio + visual signal detection, chat spikes, candidates, refine (boundaries), ranking (ClipRanker)
     ai/            registry (catalogue + presets), gateway (OpenRouter), prompts, schemas, analyst
     render/        captions, layout (panels), renderer (cut → Remotion → publish)
+    live/          watcher (the process), recorder (streamlink → ffmpeg segments), chat (anonymous Twitch IRC)
     publishing/    tiktok.py — disabled adapter + the contract a real one must meet
   migrations/    Alembic
   tests/
 apps/renderer/   Remotion composition (Clip, Captions) + render.mjs, called by the worker
 apps/web/        Next.js dashboard (App Router, Tailwind, shadcn/ui, TanStack Query)
-data/            sources, audio, transcripts, events, exports, previews, cache, work — gitignored
+data/            sources, audio, transcripts, events, exports, previews, cache, work, live — gitignored
 scripts/         dev.sh, check-deps.sh, test.sh, make-fixture.sh
 ```
 
 ## Commands
 
 ```bash
-scripts/dev.sh                 # API :8000 + worker + dashboard :3000
+scripts/dev.sh                 # API :8000 + worker + live watcher + dashboard :3000
 scripts/check-deps.sh          # node, uv, ffmpeg, yt-dlp, mlx, remotion, key
 scripts/test.sh                # ruff, pytest (not live), tsc, eslint, vitest
 scripts/test.sh --e2e          # + Playwright against the real stack with TEST adapters
@@ -53,6 +55,7 @@ scripts/make-fixture.sh        # synthetic video with real synthesised FR/EN spe
 - A prompt change requires bumping its `*_VERSION` in `ai/prompts.py` (it is part of the cache key).
 - Dependency direction: `api → pipeline → {analysis, ai, media, render, transcription} → domain/errors/timeutil`.
   `analysis`, `media`, `render` never import `ai` or `pipeline`; nothing imports `api`.
+  `live` is an entry point like the worker: it uses `pipeline`, `analysis` and `media`, and only `api` imports it.
 
 ## Rules for jobs and stages
 
@@ -67,9 +70,24 @@ scripts/make-fixture.sh        # synthetic video with real synthesised FR/EN spe
 - A job is `succeeded` only if every stage succeeded. Interrupted jobs go back to `queued` and resume at the first
   unfinished stage.
 
+## Rules for live clipping
+
+- The watcher never makes a clip. A chat moment becomes a `Source` + `Project` + pipeline `Job`; the worker does the
+  rest with the ordinary stages. Do not add a second way to produce a clip.
+- The shared timeline is the wall clock: a segment is dated by when it finished arriving (its modification time), a
+  chat message by when Twitch sent it (`tmi-sent-ts`). Segment files are numbered, never named by time (a burst
+  would overwrite them). A chat message that turns up for a bucket already read is dropped, never counted later.
+- A 10-second chat bucket that the connection did not fully cover is unknown (`None`), never zero: fake silence
+  poisons the baseline and turns the next normal bucket into a spike.
+- `Watcher.tick` must never block for long and never raise for one bad channel or moment: a moment that cannot be
+  assembled is marked `failed` with a French reason. What a tick observed (state, chat, new moments) is written
+  before any footage is assembled.
+- Only `Recorder.poll` starts or restarts a recorder; a failed start is retried with backoff, never forgotten.
+
 ## Media rules
 
-- Cuts are always re-encoded (`-ss` before `-i`); stream copy is never frame-accurate and is not used.
+- Cuts are always re-encoded (`-ss` before `-i`); stream copy is never frame-accurate and is not used to cut.
+  The one stream-copy operation is `ffmpeg.concat_copy`, which joins *whole* live segments into a source.
 - Never load a whole source into memory: audio in 60 s blocks, video as a piped stream of tiny frames.
 - A render is published only through `publish_export`, which refuses anything that failed `validate_export`.
 - Layout decisions live in Python (`render/layout.py` → panels); the Remotion composition only draws panels.
@@ -83,7 +101,9 @@ scripts/make-fixture.sh        # synthetic video with real synthesised FR/EN spe
 - File names from users are display metadata; on-disk names are generated ids. Resolve paths with `Settings.path()`,
   which rejects anything outside `data/`.
 - YouTube / Twitch: only the video id (or Twitch clip slug) is kept from user input; every request goes to a canonical
-  URL we build. Twitch channel links (live broadcasts) are refused.
+  URL we build. The importer refuses Twitch channel links.
+- Live: a channel is recorded only if it is in `live_channels` with `rights_confirmed` and `enabled`; only its login
+  is kept (`ingest.parse_twitch_login`). Chat is read anonymously. There are no Twitch credentials anywhere.
 - The API binds to 127.0.0.1 and has no authentication. Do not expose it.
 
 ## Definition of done

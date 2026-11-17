@@ -1,6 +1,6 @@
 "use client";
 
-import { Clapperboard, FolderKanban, LayoutDashboard, Plus, Settings2 } from "lucide-react";
+import { Clapperboard, FolderKanban, LayoutDashboard, Plus, Radio, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useHealth } from "@/lib/queries";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 const NAV = [
   { href: "/", label: "Tableau de bord", icon: LayoutDashboard, exact: true },
+  { href: "/direct", label: "Direct", icon: Radio },
   { href: "/projets", label: "Projets", icon: FolderKanban },
   { href: "/clips", label: "Clips", icon: Clapperboard },
   { href: "/parametres", label: "Paramètres", icon: Settings2 },
@@ -39,6 +40,11 @@ function SystemStatus() {
   return (
     <div className="space-y-3">
       <StatusLine ok={health.data.worker_alive} label="Worker" detail={health.data.worker_alive ? "Actif" : "Arrêté — aucun job ne sera traité"} />
+      <StatusLine
+        ok={health.data.live_alive ? true : "warn"}
+        label="Direct"
+        detail={health.data.live_alive ? "Surveillance active" : "Arrêtée — aucune chaîne n'est enregistrée"}
+      />
       <StatusLine
         ok={health.data.openrouter_key_configured ? true : "warn"}
         label="OpenRouter"

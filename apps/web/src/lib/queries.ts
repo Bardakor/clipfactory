@@ -3,7 +3,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { api } from "./api";
-import type { Clip, ClipDetail, Health, Job, LogLine, ModelsResponse, Project, RuntimeSettings, Stats, Storage, TranscriptResponse } from "./types";
+import type {
+  Clip,
+  ClipDetail,
+  Health,
+  Job,
+  LiveChannel,
+  LiveOverview,
+  LogLine,
+  ModelsResponse,
+  Profile,
+  Project,
+  RuntimeSettings,
+  Stats,
+  Storage,
+  TranscriptResponse,
+} from "./types";
 
 const ACTIVE = new Set(["queued", "running"]);
 
@@ -65,6 +80,9 @@ export const useTranscript = (sourceId: string | undefined, startMs: number, end
     retry: false,
   });
 
+/** Chat buckets close every ten seconds and a live clip takes a couple of minutes: three seconds is live enough. */
+export const useLive = () => useQuery({ queryKey: ["live"], queryFn: () => api<LiveOverview>("/live"), refetchInterval: 3000 });
+
 export const useRuntimeSettings = () =>
   useQuery({ queryKey: ["settings"], queryFn: async () => (await api<{ settings: RuntimeSettings }>("/settings")).settings });
 
@@ -99,4 +117,11 @@ export const clipActions = {
     api<{ clip: Clip }>(`/clips/${clipId}/feedback`, { method: "POST", body }),
   render: (clipId: string, mode: "preview" | "final") => api<{ job: Job }>(`/clips/${clipId}/render`, { method: "POST", body: { mode } }),
   patch: (clipId: string, body: Record<string, unknown>) => api<{ clip: ClipDetail["clip"] }>(`/clips/${clipId}`, { method: "PATCH", body }),
+};
+
+export const liveActions = {
+  add: (body: { channel: string; rights_confirmed: boolean; profile: Profile }) => api<{ channel: LiveChannel }>("/live/channels", { method: "POST", body }),
+  patch: (channelId: string, body: { enabled?: boolean; profile?: Profile }) =>
+    api<{ channel: LiveChannel }>(`/live/channels/${channelId}`, { method: "PATCH", body }),
+  remove: (channelId: string) => api<{ deleted: string }>(`/live/channels/${channelId}`, { method: "DELETE" }),
 };

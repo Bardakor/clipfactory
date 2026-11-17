@@ -22,6 +22,7 @@ check "ffprobe"    "ffprobe -version"                       1 "brew install ffmp
 check "arch"       "uname -m | grep arm64"                  0 "MLX Whisper needs Apple Silicon; use the OpenRouter transcriber otherwise"
 if [ -d "$ROOT/apps/api/.venv" ]; then
   check "yt-dlp"      "cd '$ROOT/apps/api' && uv run --no-sync python -m yt_dlp --version"                              1 "cd apps/api && uv sync"
+  check "streamlink"  "cd '$ROOT/apps/api' && uv run --no-sync python -m streamlink_cli --version"                      1 "cd apps/api && uv sync"
   check "mlx-whisper" "cd '$ROOT/apps/api' && uv run --no-sync python -c 'import mlx_whisper, mlx.core as m; print(\"mlx\", m.__version__)'" 0 "cd apps/api && uv sync (Apple Silicon only)"
   check "opencv"      "cd '$ROOT/apps/api' && uv run --no-sync python -c 'import cv2; print(cv2.__version__)'"         1 "cd apps/api && uv sync"
 else

@@ -178,10 +178,45 @@ export type Project = {
   candidates?: Candidate[];
 };
 
+/** Chat activity of a watched channel: distinct chatters per 10 s bucket from ``t0`` (epoch seconds); null = chat was not being read. */
+export type LiveChat = { t0: number; chatters: Array<number | null> };
+
+export type LiveChannel = {
+  id: string;
+  login: string;
+  url: string;
+  enabled: boolean;
+  profile: Profile;
+  state: "offline" | "recording" | "error";
+  state_detail: string | null;
+  live_since: string | null;
+  chat: LiveChat | null;
+  created_at: string;
+};
+
+export type LiveMoment = {
+  id: string;
+  channel_id: string;
+  login: string;
+  peak_at: string;
+  chatters: number;
+  baseline: number;
+  z: number;
+  status: "pending" | "queued" | "failed";
+  detail: string | null;
+  project_id: string | null;
+  job_status: JobStatus | null;
+  current_stage: string | null;
+  clip: Clip | null;
+};
+
+export type LiveOverview = { alive: boolean; channels: LiveChannel[]; moments: LiveMoment[] };
+
 export type Health = {
   ok: boolean;
   dependencies: Record<string, string | null>;
   worker_alive: boolean;
+  live_alive: boolean;
   openrouter_key_configured: boolean;
   test_mode: boolean;
   ai_adapter: string;
@@ -213,6 +248,7 @@ export type RuntimeSettings = {
   vocabulary: string[];
   corrections: Record<string, string>;
   audio: { silence_db: number; min_silence_ms: number; peak_z: number; group_gap_ms: number };
+  live: { spike_z: number; min_chatters: number; before_s: number; after_s: number; buffer_min: number };
   llm_concurrency: number;
   llm_timeout_s: number;
   llm_max_retries: number;

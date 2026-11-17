@@ -21,6 +21,7 @@ from clipfactory.config import RENDERER_DIR, get_settings
 from clipfactory.db import get_session
 from clipfactory.domain import AI_TASKS, REJECTION_REASONS
 from clipfactory.errors import NotFound
+from clipfactory.live.watcher import HEARTBEAT_KEY
 from clipfactory.models import AppSetting, Clip, InferenceUsage, Job, MediaAsset, Project, Source
 from clipfactory.publishing.tiktok import tiktok_status
 from clipfactory.settings_store import RuntimeSettings, load_runtime, save_runtime
@@ -39,23 +40,29 @@ def _version(cmd: list[str]) -> str | None:
         return None
 
 
+def process_alive(s: Session, heartbeat_key: str) -> bool:
+    """True when the background process writing this heartbeat did so in the last 20 seconds."""
+    beat = s.get(AppSetting, heartbeat_key)
+    return bool(beat and now() - beat.updated_at < timedelta(seconds=20))
+
+
 @router.get("/health")
 def health(s: Session = Depends(get_session)) -> dict:
     settings = get_settings()
-    beat = s.get(AppSetting, "worker_heartbeat")
-    worker_alive = bool(beat and now() - beat.updated_at < timedelta(seconds=20))
     deps = {
         "ffmpeg": _version(["ffmpeg", "-version"]),
         "ffprobe": _version(["ffprobe", "-version"]),
         "node": _version(["node", "--version"]),
         "yt_dlp": "installed" if importlib.util.find_spec("yt_dlp") else None,
+        "streamlink": "installed" if importlib.util.find_spec("streamlink") else None,
         "mlx_whisper": "installed" if importlib.util.find_spec("mlx_whisper") else None,
         "remotion": "installed" if (RENDERER_DIR / "node_modules" / "remotion").exists() else None,
     }
     return {
         "ok": all(deps.values()),
         "dependencies": deps,
-        "worker_alive": worker_alive,
+        "worker_alive": process_alive(s, "worker_heartbeat"),
+        "live_alive": process_alive(s, HEARTBEAT_KEY),
         "openrouter_key_configured": settings.has_openrouter_key,  # a boolean only — the key itself never leaves the server
         "test_mode": settings.test_mode,
         "ai_adapter": settings.clipfactory_ai_adapter,
@@ -161,7 +168,7 @@ CLEANABLE = {
 @router.get("/storage")
 def storage() -> dict:
     settings = get_settings()
-    usage = {name: _dir_size(settings.path(name)) for name in ("sources", "audio", "transcripts", "events", "exports", "previews", "work", "cache")}
+    usage = {name: _dir_size(settings.path(name)) for name in ("sources", "audio", "transcripts", "events", "exports", "previews", "work", "cache", "live")}
     return {"data_dir": str(settings.data_dir), "bytes": usage, "total_bytes": sum(usage.values()), "cleanable": list(CLEANABLE)}
 
 

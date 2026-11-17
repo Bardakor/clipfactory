@@ -18,7 +18,8 @@ from clipfactory.db import session_scope
 from clipfactory.domain import Segment
 from clipfactory.errors import AIError, MediaError
 from clipfactory.media import ffmpeg
-from clipfactory.models import AudioEvent, Candidate, Clip, Feedback, Project, VisualEvent
+from clipfactory.media.ingest import twitch_channel_url
+from clipfactory.models import AudioEvent, Candidate, Clip, Feedback, LiveMoment, Project, VisualEvent
 from clipfactory.pipeline.common import Inputs, build_analyst, load_features, load_inputs, load_segments, purge_clip_files
 from clipfactory.pipeline.context import JobContext
 from clipfactory.render.captions import build_captions
@@ -31,6 +32,22 @@ DEFAULT_HASHTAGS = {
     "general": ["#gaming", "#clips", "#stream"],
     "custom": ["#gaming", "#clips"],
 }
+
+
+def credit_social(social: dict, channel: str | None, origin_url: str | None) -> dict:
+    """Post copy that credits the channel the footage comes from: a line under the caption and a hashtag.
+
+    Deterministic on purpose — who made the video is a fact of the source, not something to ask a model.
+    """
+    if not channel:
+        return social
+    on_twitch = origin_url == twitch_channel_url(channel)  # recorded live from that channel's page
+    credit = f"🎥 twitch.tv/{channel}" if on_twitch else f"🎥 {channel}"
+    tag = "#" + "".join(ch for ch in channel.lower() if ch.isalnum() or ch == "_")
+    hashtags = list(social.get("hashtags") or [])
+    if len(tag) > 1 and tag not in (h.lower() for h in hashtags):
+        hashtags = [*hashtags[:9], tag]
+    return {**social, "caption": "\n".join(filter(None, [social.get("caption"), credit])), "hashtags": hashtags}
 
 
 def _editorial_context(inputs: Inputs) -> EditorialContext:
@@ -121,6 +138,13 @@ def stage_analyze(ctx: JobContext) -> None:
     pool_target = max(p.clip_count + 4, math.ceil(p.clip_count * budget.pool_factor))
     windows = cand.signal_candidates(signals, pool_target, min_ms, max_ms)
     ctx.log(f"{len(windows)} candidats issus des signaux audio/visuels")
+    with session_scope() as s:
+        moment = s.scalar(select(LiveMoment).where(LiveMoment.project_id == ctx.project_id))
+        chat = (moment.chatters, moment.baseline) if moment else None
+    if chat:
+        # A source recorded around a chat spike: what chat reacted to is at its end, and must always compete.
+        windows.append(cand.CandidateWindow(max(0, inputs.duration_ms - max_ms), inputs.duration_ms, ["chat_spike"], event_type="chat_spike"))
+        ctx.log(f"moment signalé par le chat : {chat[0]} personnes en 10 s (habituel : {chat[1]:.0f})")
     ctx.progress(0.1, "analyse du transcript")
 
     if analyst is not None and segments:
@@ -367,7 +391,12 @@ def stage_refine(ctx: JobContext) -> None:
             for cid, critique in analyst.critique([brief(c, True) for c in chosen], ectx).items():
                 start, end, notes = bounds[cid]
                 if critique.verdict == "reject":
-                    rejected[cid] = critique.issue or "rejeté au contrôle qualité final"
+                    issue = critique.issue or "rejeté au contrôle qualité final"
+                    if p.quality_threshold > 0:
+                        rejected[cid] = issue
+                    else:
+                        # No quality threshold: the person reviewing the clip is the gate, and sees the objection.
+                        bounds[cid] = (start, end, [*notes, f"réserve du contrôle qualité : {issue}"])
                 elif critique.verdict == "adjust":
                     # Bounded, then re-validated by the same deterministic rules as every other boundary.
                     new_start = clamp_ms(start + s_to_ms(max(-6, min(6, critique.start_offset_s))), 0, inputs.duration_ms)
@@ -416,9 +445,12 @@ def stage_refine(ctx: JobContext) -> None:
                 main_event=(main_event or "")[:300], justification=c.justification, layout=p.layout,
                 subtitle_style=p.subtitle_style, subtitle_options=p.subtitle_options.model_dump(),
                 captions=[cp.model_dump() for cp in captions], captions_precision=precision,
-                social={"title": copy.title, "caption": copy.caption, "hashtags": copy.hashtags, "origin": "test" if is_test else "ai"}
-                if copy else {"title": fallback_title, "caption": first_words, "hashtags": DEFAULT_HASHTAGS[p.profile],
-                              "origin": "default"},
+                social=credit_social(
+                    {"title": copy.title, "caption": copy.caption, "hashtags": copy.hashtags, "origin": "test" if is_test else "ai"}
+                    if copy else {"title": fallback_title, "caption": first_words, "hashtags": DEFAULT_HASHTAGS[p.profile],
+                                  "origin": "default"},
+                    inputs.channel, inputs.origin_url,
+                ),
                 is_test=is_test,
             ))  # fmt: skip
             row = s.get(Candidate, c.id)

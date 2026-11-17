@@ -8,7 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from clipfactory.api import routes_clips, routes_projects, routes_system
+from clipfactory.api import routes_clips, routes_live, routes_projects, routes_system
 from clipfactory.config import get_settings
 from clipfactory.db import migrate
 from clipfactory.errors import ClipFactoryError
@@ -54,6 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(routes_system.router, prefix="/api")
     app.include_router(routes_projects.router, prefix="/api")
     app.include_router(routes_clips.router, prefix="/api")
+    app.include_router(routes_live.router, prefix="/api")
     return app
 
 

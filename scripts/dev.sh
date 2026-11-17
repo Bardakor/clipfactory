@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One command to run CLIPFACTORY locally: API (127.0.0.1:8000), worker, and dashboard (localhost:3000).
+# One command to run CLIPFACTORY locally: API (127.0.0.1:8000), worker, live watcher, and dashboard (localhost:3000).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -15,6 +15,7 @@ trap cleanup INT TERM EXIT
 # The API binds to loopback only: this is a single-user local tool with no authentication.
 (cd apps/api && exec uv run --no-sync uvicorn clipfactory.api.app:app --host 127.0.0.1 --port "$API_PORT" --log-level warning) & pids+=($!)
 (cd apps/api && exec uv run --no-sync python -m clipfactory.worker) & pids+=($!)
+(cd apps/api && exec uv run --no-sync python -m clipfactory.live.watcher) & pids+=($!)
 (cd apps/web && NEXT_PUBLIC_API_URL="http://127.0.0.1:$API_PORT" exec pnpm exec next dev --port "$WEB_PORT") & pids+=($!)
 echo "CLIPFACTORY → http://localhost:$WEB_PORT   (API http://127.0.0.1:$API_PORT)"
 wait

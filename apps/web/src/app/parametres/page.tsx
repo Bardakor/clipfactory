@@ -40,6 +40,13 @@ const schema = z.object({
     peak_z: z.number().min(0.5).max(8),
     group_gap_ms: z.number().int().min(0).max(10000),
   }),
+  live: z.object({
+    spike_z: z.number().min(1.5).max(12),
+    min_chatters: z.number().int().min(1).max(500),
+    before_s: z.number().int().min(10).max(120),
+    after_s: z.number().int().min(5).max(60),
+    buffer_min: z.number().int().min(3).max(120),
+  }),
   llm_concurrency: z.number().int().min(1).max(16),
   llm_timeout_s: z.number().int().min(10).max(600),
   llm_max_retries: z.number().int().min(0).max(8),
@@ -328,6 +335,29 @@ export default function SettingsPage() {
             </Field>
             <Field label="Regroupement (ms)">
               <Input type="number" className="border-0 bg-raised" {...number("audio.group_gap_ms")} />
+            </Field>
+          </div>
+        </Card>
+
+        <Card
+          title="Détection en direct"
+          description="Un pic est un nombre de personnes différentes dans le chat, sur 10 secondes, anormal par rapport aux 5 minutes précédentes de la chaîne. Le chat réagit après le moment : le clip commence avant le pic."
+        >
+          <div className="grid grid-cols-2 gap-4 xl:grid-cols-5">
+            <Field label="Sensibilité (z-score)" hint="plus bas = plus de clips">
+              <Input type="number" step="0.1" className="border-0 bg-raised" {...number("live.spike_z")} />
+            </Field>
+            <Field label="Personnes minimum">
+              <Input type="number" className="border-0 bg-raised" {...number("live.min_chatters")} />
+            </Field>
+            <Field label="Avant le pic (s)">
+              <Input type="number" className="border-0 bg-raised" {...number("live.before_s")} />
+            </Field>
+            <Field label="Après le pic (s)">
+              <Input type="number" className="border-0 bg-raised" {...number("live.after_s")} />
+            </Field>
+            <Field label="Tampon gardé (min)">
+              <Input type="number" className="border-0 bg-raised" {...number("live.buffer_min")} />
             </Field>
           </div>
         </Card>

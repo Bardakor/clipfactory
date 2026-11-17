@@ -17,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from clipfactory.config import Settings
+from clipfactory.domain import ProbeResult
 from clipfactory.errors import IngestError, MediaError, ValidationFailed
 from clipfactory.logs import get_logger
 from clipfactory.media import ffmpeg
@@ -31,6 +32,12 @@ _VIDEO_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 _TWITCH_HOSTS = {"twitch.tv", "www.twitch.tv", "m.twitch.tv", "clips.twitch.tv"}
 _TWITCH_VOD_ID = re.compile(r"^\d{6,12}$")
 _TWITCH_CLIP_SLUG = re.compile(r"^(?!\d+$)[A-Za-z0-9_-]{4,120}$")
+_TWITCH_LOGIN = re.compile(r"^[a-z0-9_]{3,25}$")
+# twitch.tv/<word> pages that are not a channel, and the pages that do belong to one (twitch.tv/<channel>/<page>).
+_TWITCH_NOT_A_CHANNEL = {"videos", "directory", "settings", "subscriptions", "inventory", "drops", "wallet", "downloads", "turbo",
+                         "prime", "jobs", "store", "search", "friends", "payments", "privacy", "popout", "moderator", "embed",
+                         "team", "u", "p"}  # fmt: skip
+_TWITCH_CHANNEL_PAGES = {"videos", "about", "schedule", "clips", "clip", "home"}
 _THUMB_HOSTS = (".ytimg.com", ".ggpht.com", ".googleusercontent.com", ".jtvnw.net", ".twitch.tv")
 MAX_REMOTE_DURATION_S = 12 * 3600
 # Best H.264 stream up to 1080p. Twitch only serves muxed HLS variants, which the last two alternatives match.
@@ -127,6 +134,37 @@ def parse_twitch_url(url: str) -> str:
         if len(parts) == 3 and parts[1] == "clip" and _TWITCH_CLIP_SLUG.match(parts[2]):
             return parts[2]
     raise ValidationFailed("paste the link of a Twitch VOD (twitch.tv/videos/…) or clip; a channel or a live broadcast cannot be imported")
+
+
+def parse_twitch_login(value: str) -> str:
+    """The login of a Twitch channel, from the login itself or from a link to the channel.
+
+    Used only for channels the user is authorised to record live. As everywhere in this module,
+    nothing else of the input survives: the address we later open is rebuilt by ``twitch_channel_url``.
+    """
+    text = value.strip().lstrip("@")
+    if "/" in text or "." in text:
+        try:
+            parsed = urlparse(text if "://" in text else f"https://{text}")
+            has_port = parsed.port is not None  # reading the port is what rejects a malformed one
+        except ValueError as exc:
+            raise ValidationFailed("invalid URL") from exc
+        host = (parsed.hostname or "").lower()
+        parts = [part for part in parsed.path.split("/") if part]
+        # A link is taken as a channel only when it is shaped like one: twitch.tv/<channel>, or one of that channel's
+        # own pages. twitch.tv/moderator/<channel> or twitch.tv/popout/<channel>/chat must not become "moderator".
+        if (parsed.scheme != "https" or host not in _TWITCH_HOSTS - {"clips.twitch.tv"} or parsed.username or has_port
+                or not parts or (len(parts) > 1 and parts[1].lower() not in _TWITCH_CHANNEL_PAGES)):  # fmt: skip
+            raise ValidationFailed("only a Twitch channel name or a https://twitch.tv/<channel> link is supported")
+        text = parts[0]
+    login = text.lower()
+    if not _TWITCH_LOGIN.match(login) or login in _TWITCH_NOT_A_CHANNEL:
+        raise ValidationFailed("this does not look like a Twitch channel name")
+    return login
+
+
+def twitch_channel_url(login: str) -> str:
+    return f"https://www.twitch.tv/{login}"
 
 
 def parse_video_url(url: str) -> tuple[RemoteKind, str]:
@@ -232,13 +270,14 @@ def download_remote(
     return matches[0]
 
 
-def finalize_source(session: Session, settings: Settings, source: Source, path: Path) -> Source:
+def finalize_source(session: Session, settings: Settings, source: Source, path: Path, probe: ProbeResult | None = None) -> Source:
     """Probe a freshly stored file, record its metadata and deduplicate by fingerprint.
 
     Returns the source to use from now on — an existing one if the same content
-    was imported before, in which case the new file is removed.
+    was imported before, in which case the new file is removed. A caller that has
+    already probed the file passes the result instead of having it probed twice.
     """
-    probe = ffmpeg.probe(path)  # raises MediaError for undecodable input
+    probe = probe or ffmpeg.probe(path)  # raises MediaError for undecodable input
     fp = fingerprint(path)
     existing = session.scalar(
         select(Source).where(Source.fingerprint == fp, Source.status == "ready", Source.id != source.id)

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildPatch, draftFromClip } from "./editor-store";
-import { bytes, clamp, clock, elapsedMs, seconds, timecode, usd } from "./format";
-import type { ClipDetail } from "./types";
+import { bytes, chatBuckets, clamp, clock, elapsedMs, momentStatus, readyToPost, seconds, timecode, usd } from "./format";
+import type { ClipDetail, LiveMoment } from "./types";
 
 describe("formatting", () => {
   it("formats source timestamps", () => {
@@ -67,5 +67,44 @@ describe("editor patch", () => {
     const draft = { ...draftFromClip(clip), crop: { x: 0.1, y: 0, w: 0.5, h: 1 } };
     expect(buildPatch(draft, clip)).toEqual({});
     expect(buildPatch({ ...draft, layout: "manual" }, clip)).toEqual({ layout: "manual", manual_crop: { x: 0.1, y: 0, w: 0.5, h: 1 } });
+  });
+});
+
+describe("live", () => {
+  const moment: LiveMoment = {
+    id: "m1", channel_id: "c1", login: "marlon", peak_at: "2026-11-19T20:15:00Z", chatters: 60, baseline: 8, z: 18.4,
+    status: "queued", detail: null, project_id: "p1", job_status: "running", current_stage: "transcribe", clip: null,
+  }; // prettier-ignore
+
+  it("lays chat buckets on the clock and marks the ones that became a moment", () => {
+    const buckets = chatBuckets({ t0: 1000, chatters: [8, null, 60] }, [1020]);
+    expect(buckets).toEqual([
+      { at: 1000, chatters: 8, spike: false },
+      { at: 1010, chatters: null, spike: false }, // chat was not being read: unknown, not zero
+      { at: 1020, chatters: 60, spike: true },
+    ]);
+    expect(chatBuckets(null, [])).toEqual([]);
+  });
+
+  it("says where a detected moment stands", () => {
+    expect(momentStatus({ ...moment, status: "pending", project_id: null, job_status: null, current_stage: null })).toEqual({
+      label: "Enregistrement du moment",
+      tone: "info",
+    });
+    expect(momentStatus(moment)).toEqual({ label: "Transcription", tone: "info" });
+    expect(momentStatus({ ...moment, job_status: "queued", current_stage: null })).toEqual({ label: "En file", tone: "muted" });
+    expect(momentStatus({ ...moment, job_status: "succeeded", current_stage: null })).toEqual({ label: "Aucun clip retenu", tone: "muted" });
+    expect(momentStatus({ ...moment, job_status: "failed", current_stage: null })).toEqual({ label: "Échec du traitement", tone: "destructive" });
+    expect(momentStatus({ ...moment, project_id: null, job_status: null, current_stage: null })).toEqual({ label: "Projet supprimé", tone: "muted" });
+    expect(momentStatus({ ...moment, status: "failed", detail: "Aucune image" })).toEqual({ label: "Aucune image", tone: "destructive" });
+  });
+
+  it("offers a clip for posting only once its pipeline has finished", () => {
+    const clip = { id: "c1", render_status: "rendering" } as LiveMoment["clip"];
+    expect(readyToPost({ ...moment, clip })).toBe(false); // the clip row exists as soon as it is chosen, before it is rendered
+    expect(momentStatus({ ...moment, clip, current_stage: "render" })).toEqual({ label: "Rendu", tone: "info" });
+    expect(readyToPost({ ...moment, clip, job_status: "failed" })).toBe(false);
+    expect(readyToPost({ ...moment, job_status: "succeeded" })).toBe(false); // finished, but nothing was kept
+    expect(readyToPost({ ...moment, clip, job_status: "succeeded" })).toBe(true);
   });
 });

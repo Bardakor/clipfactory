@@ -6,7 +6,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from clipfactory.domain import Caption
-from clipfactory.models import Clip, InferenceUsage, Job, MediaAsset, Project, Source
+from clipfactory.media.ingest import twitch_channel_url
+from clipfactory.models import Clip, InferenceUsage, Job, LiveChannel, LiveMoment, MediaAsset, Project, Source
 from clipfactory.render.captions import pages_of
 
 
@@ -111,4 +112,37 @@ def project_out(s: Session, project: Project, *, detail: bool = False) -> dict:
              "status": c.status, "reject_reason": c.reject_reason, "justification": c.justification}  # fmt: skip
             for c in sorted(project.candidates, key=lambda c: c.final_score or 0, reverse=True)
         ]
+    return out
+
+
+def live_channel_out(channel: LiveChannel, alive: bool) -> dict:
+    """A watched channel. What the watcher last wrote only counts while it runs and the channel is enabled:
+    otherwise nothing is being recorded, whatever the row says."""
+    watched = alive and channel.enabled
+    return {
+        "id": channel.id, "login": channel.login, "url": twitch_channel_url(channel.login), "enabled": channel.enabled,
+        "profile": channel.settings.get("profile"), "state": channel.state if watched else "offline",
+        "state_detail": channel.state_detail if watched else None, "live_since": iso(channel.live_since) if watched else None,
+        "chat": channel.chat if watched else None, "created_at": iso(channel.created_at),
+    }  # fmt: skip
+
+
+def live_moments_out(s: Session, moments: list[LiveMoment]) -> list[dict]:
+    """Detected moments with where their clip stands. Jobs and clips are loaded once for the whole list."""
+    project_ids = [m.project_id for m in moments if m.project_id]
+    jobs, clips = {}, {}
+    if project_ids:
+        jobs = {j.project_id: j for j in s.scalars(
+            select(Job).where(Job.project_id.in_(project_ids), Job.kind == "pipeline").order_by(Job.created_at))}  # fmt: skip
+        clips = {c.project_id: c for c in s.scalars(select(Clip).where(Clip.project_id.in_(project_ids)).order_by(Clip.rank.desc()))}
+    out = []
+    for m in moments:
+        job, clip = jobs.get(m.project_id), clips.get(m.project_id)
+        out.append({
+            "id": m.id, "channel_id": m.channel_id, "login": m.channel.login, "peak_at": iso(m.peak_at), "chatters": m.chatters,
+            "baseline": m.baseline, "z": m.z, "status": m.status, "detail": m.detail, "project_id": m.project_id if job else None,
+            "job_status": job.status if job else None,
+            "current_stage": next((st.name for st in job.stages if st.status == "running"), None) if job and job.status == "running" else None,
+            "clip": clip_out(s, clip) if clip else None,
+        })  # fmt: skip
     return out

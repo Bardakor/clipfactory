@@ -36,6 +36,7 @@ class Inputs:
     source_path: Path | None
     origin_url: str | None
     title: str
+    channel: str | None
     fingerprint: str | None
     duration_ms: int
     width: int
@@ -54,6 +55,7 @@ def load_inputs(ctx: JobContext) -> Inputs:
             project_id=project.id, project_name=project.name, settings=ProjectSettings.model_validate(project.settings),
             source_id=src.id, source_kind=src.kind, source_status=src.status,
             source_path=ctx.settings.path(src.path) if src.path else None, origin_url=src.origin_url, title=src.title,
+            channel=src.channel,
             fingerprint=src.fingerprint, duration_ms=src.duration_ms or 0, width=src.width or 0, height=src.height or 0,
             has_audio=src.audio_codec is not None, facecam=src.facecam,
         )  # fmt: skip

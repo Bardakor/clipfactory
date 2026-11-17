@@ -15,10 +15,11 @@ dependencies = [
   "numpy>=1.26",
   "soundfile>=0.12",
   "librosa>=0.10",
-  "opencv-python-headless>=4.10,<5",  # 5.x removed CascadeClassifier (facecam detection)
+  "opencv-python-headless>=4.10,<5", # 5.x removed CascadeClassifier (facecam detection)
   "mlx-whisper>=0.4.3",
-  "yt-dlp[default]>=2026.8.19",  # "default" brings yt-dlp-ejs, the solver YouTube formats now require
+  "yt-dlp[default]>=2026.8.19", # "default" brings yt-dlp-ejs, the solver YouTube formats now require
   "psutil>=6.0",
+  "streamlink>=7.0",
 ]
 
 [dependency-groups]

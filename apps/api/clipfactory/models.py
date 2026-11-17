@@ -359,6 +359,44 @@ class Feedback(Base):
     clip: Mapped[Clip] = relationship(back_populates="feedback")
 
 
+class LiveChannel(Base):
+    """A Twitch channel the user is authorised to record while it is live."""
+
+    __tablename__ = "live_channels"
+    id: Mapped[str] = _pk()
+    login: Mapped[str] = mapped_column(String(25), unique=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    rights_confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
+    settings: Mapped[dict] = mapped_column(JSON)  # ProjectSettings of every clip made from this channel
+    state: Mapped[str] = mapped_column(String(16), default="offline")  # offline | recording | error — written by the watcher
+    state_detail: Mapped[str | None] = mapped_column(String(300))
+    live_since: Mapped[datetime | None] = mapped_column()
+    chat: Mapped[dict | None] = mapped_column(JSON)  # recent buckets: {"t0": epoch s, "chatters": [int | null, …]}
+    created_at: Mapped[datetime] = _created()
+
+    moments: Mapped[list[LiveMoment]] = relationship(back_populates="channel", cascade="all, delete-orphan")
+
+
+class LiveMoment(Base):
+    """A chat spike on a recorded channel, and the project it became."""
+
+    __tablename__ = "live_moments"
+    id: Mapped[str] = _pk()
+    channel_id: Mapped[str] = _fk("live_channels.id")
+    peak_at: Mapped[datetime] = mapped_column()  # start of the 10-second bucket in which chat spiked
+    chatters: Mapped[int] = mapped_column(Integer)  # distinct people in that bucket
+    baseline: Mapped[float] = mapped_column(Float)  # their usual number over the previous five minutes
+    z: Mapped[float] = mapped_column(Float)
+    window_start: Mapped[datetime] = mapped_column()
+    window_end: Mapped[datetime] = mapped_column()
+    status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending | queued | failed
+    detail: Mapped[str | None] = mapped_column(String(300))
+    project_id: Mapped[str | None] = mapped_column(String(32), index=True)
+    created_at: Mapped[datetime] = _created()
+
+    channel: Mapped[LiveChannel] = relationship(back_populates="moments")
+
+
 class AppSetting(Base):
     """Runtime configuration (model routing, budgets, defaults), one JSON value per key."""
 

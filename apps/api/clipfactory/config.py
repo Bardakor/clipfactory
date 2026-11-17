@@ -29,6 +29,7 @@ DATA_SUBDIRS = (
     "cache",
     "work",
     "thumbnails",
+    "live",
 )
 
 

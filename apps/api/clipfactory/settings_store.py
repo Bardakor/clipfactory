@@ -45,6 +45,16 @@ class AudioDetectorSettings(BaseModel):
     group_gap_ms: int = Field(default=1500, ge=0, le=10000)  # merge events closer than this
 
 
+class LiveSettings(BaseModel):
+    """Live clipping: when chat activity counts as a moment, and how much footage is kept around it."""
+
+    spike_z: float = Field(default=3.5, ge=1.5, le=12)  # how far above its own baseline chat must be
+    min_chatters: int = Field(default=5, ge=1, le=500)  # distinct people in the 10-second bucket
+    before_s: int = Field(default=45, ge=10, le=120)  # footage kept before the spike: chat reacts after the moment
+    after_s: int = Field(default=15, ge=5, le=60)
+    buffer_min: int = Field(default=10, ge=3, le=120)  # how long recorded segments stay on disk
+
+
 class RuntimeSettings(BaseModel):
     preset: Preset = "balanced"
     custom_models: dict[AITask, str] = {}
@@ -55,6 +65,7 @@ class RuntimeSettings(BaseModel):
     vocabulary: list[str] = DEFAULT_VOCABULARY
     corrections: dict[str, str] = DEFAULT_CORRECTIONS
     audio: AudioDetectorSettings = AudioDetectorSettings()
+    live: LiveSettings = LiveSettings()
     llm_concurrency: int = Field(default=4, ge=1, le=16)
     llm_timeout_s: int = Field(default=120, ge=10, le=600)
     llm_max_retries: int = Field(default=3, ge=0, le=8)

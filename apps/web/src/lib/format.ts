@@ -1,5 +1,7 @@
 // Formatting and French labels. Pure functions — covered by format.test.ts.
 
+import type { LiveChat, LiveMoment } from "./types";
+
 export function clock(ms: number | null | undefined): string {
   if (ms === null || ms === undefined) return "—";
   const total = Math.max(0, Math.floor(ms / 1000));
@@ -40,6 +42,11 @@ export function usd(value: number | null | undefined): string {
 export function dateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   return new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(iso));
+}
+
+/** Local time of day of a timestamp in milliseconds. */
+export function timeOfDay(ms: number, withSeconds = false): string {
+  return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", second: withSeconds ? "2-digit" : undefined }).format(new Date(ms));
 }
 
 export function elapsedMs(startIso: string | null, endIso: string | null, now: number = Date.now()): number | null {
@@ -128,3 +135,43 @@ export const TASK_LABELS: Record<string, string> = {
 };
 
 export const BASIS_LABELS: Record<string, string> = { ai: "IA", heuristic: "Heuristique", test: "TEST" };
+
+const BUCKET_S = 10;
+
+export type ChatBucket = { at: number; chatters: number | null; spike: boolean };
+
+/** Chat buckets placed on the clock (epoch seconds), flagging those whose spike became a moment. */
+export function chatBuckets(chat: LiveChat | null, spikes: number[]): ChatBucket[] {
+  if (!chat) return [];
+  return chat.chatters.map((chatters, i) => {
+    const at = chat.t0 + i * BUCKET_S;
+    return { at, chatters, spike: spikes.includes(at) };
+  });
+}
+
+/** A moment is offered for posting once its pipeline has finished and left a clip; until then it is still under way. */
+export function readyToPost(moment: LiveMoment): boolean {
+  return moment.clip !== null && moment.job_status === "succeeded";
+}
+
+export type Tone = "muted" | "info" | "ok" | "destructive";
+
+/** Where a moment detected in chat stands on its way to a clip. A moment that has its clip is shown as the clip itself. */
+export function momentStatus(moment: LiveMoment): { label: string; tone: Tone } {
+  if (moment.status === "failed") return { label: moment.detail ?? "Échec", tone: "destructive" };
+  if (moment.status === "pending") return { label: "Enregistrement du moment", tone: "info" };
+  switch (moment.job_status) {
+    case "running":
+      return { label: STAGE_LABELS[moment.current_stage ?? ""] ?? "En cours", tone: "info" };
+    case "queued":
+      return { label: "En file", tone: "muted" };
+    case "failed":
+      return { label: "Échec du traitement", tone: "destructive" };
+    case "cancelled":
+      return { label: "Annulé", tone: "muted" };
+    case "succeeded":
+      return { label: "Aucun clip retenu", tone: "muted" };
+    default:
+      return { label: "Projet supprimé", tone: "muted" };
+  }
+}

@@ -101,6 +101,15 @@ class ProjectSettings(BaseModel):
         return self
 
 
+def live_project_settings(profile: Profile) -> ProjectSettings:
+    """Settings of a project made from a live chat moment.
+
+    The source *is* the moment (about a minute around the spike), so it yields one clip, and that clip
+    is always shown with its score: the person reviewing it before posting is the quality gate.
+    """
+    return ProjectSettings(profile=profile, clip_count=1, min_len_s=15, max_len_s=60, quality_threshold=0)
+
+
 # ── media ───────────────────────────────────────────────────────────────────
 
 

@@ -1,7 +1,9 @@
 # CLIPFACTORY
 
 A local AI clipping studio for gaming footage. Paste a YouTube or Twitch link or drop a video; get back ranked, captioned,
-vertical clips ready for TikTok, Reels and Shorts — with subtitles, suggested captions and metadata.
+vertical clips ready for TikTok, Reels and Shorts — with subtitles, suggested captions and metadata. Or leave it
+plugged into Twitch channels you are authorised to clip: when their chat goes wild, the moment becomes a clip while
+the stream is still running.
 
 Built for an Apple Silicon Mac. The only external credential is an OpenRouter API key.
 
@@ -14,7 +16,7 @@ long video ─► transcribe (local) ─► audio + visual signals ─► candid
 ```bash
 scripts/check-deps.sh          # verifies node, pnpm, uv, ffmpeg, yt-dlp, MLX, Remotion
 cp .env.example .env           # then put your key in it:  OPENROUTER_API_KEY=sk-or-…
-scripts/dev.sh                 # API + worker + dashboard
+scripts/dev.sh                 # API + worker + live watcher + dashboard
 ```
 
 Open **http://localhost:3000**.
@@ -31,6 +33,9 @@ understanding $0.13, editorial ranking $0.11, transcript analysis $0.04, critiqu
 one-minute fixture on Rapide cost under 2 cents. Vision and ranking scale with the number of clips requested;
 transcript analysis scales with duration. Changing the threshold, clip count or profile weights afterwards re-uses
 the cached answers and costs nothing.
+
+A live moment (about one minute of footage, Équilibré) cost **$0.06** on the fixture: six requests per clip. A busy
+night with thirty chat spikes is about $2; the per-job alert and hard cap in *Paramètres* apply to live clips too.
 
 A model's reasoning tokens are billed as output, and OpenRouter refuses a request when the account cannot cover its
 `max_tokens`, so keep a small balance rather than an exact one. *Paramètres* has a per-job cost alert and an
@@ -58,6 +63,15 @@ ever simulated in normal operation.
 5. **Paramètres** — model per task (from the live OpenRouter catalogue, with prices), presets, transcription
    provider, vocabulary and correction dictionary, audio detector, concurrency, cost alert and hard cap, profile
    weights, storage cleanup.
+
+6. **Direct** — add the Twitch channels you are authorised to clip (name or link, and tick the authorisation box).
+   Each one is recorded as soon as it goes live, and its chat is read without any account. The page shows who is
+   talking per 10 seconds; when that number is abnormal *for that channel*, the minute around the spike
+   (45 s before, 15 s after: chat reacts after the moment) goes through the normal pipeline and the clip appears
+   under **Clips à poster** a couple of minutes later, with a title, a caption crediting the streamer and hashtags.
+   Posting is manual: copy the caption, download the MP4. Sensitivity and window are in *Paramètres → Détection en
+   direct*. Keep `scripts/dev.sh` running for as long as you want channels watched: while a channel is watched the
+   Mac is kept from idle-sleeping, but closing the lid still puts it to sleep.
 
 Exports land in `data/exports/<project>/` (and optionally a folder of your choice).
 
@@ -109,6 +123,10 @@ banner, and excluded from dashboard statistics.
 | Qualité max preset, real video input to a model | — | ❌ not run |
 | OpenRouter speech-to-text provider | mocked HTTP only | ⚠️ |
 | Editorial quality | one English police-RP session, judged by reading the justifications — not a systematic evaluation; French RP only on a 3-minute extract with the Rapide preset | ⚠️ |
+| **Live clipping**: chat spike detection, chat reader and reconnection, recorder start / failure / stall / resume, pending moments across a restart, pruning | automated (local fake chat server, synthetic stream, real FFmpeg); each failure-path test was checked to fail with its defect put back | ✅ |
+| Live: anonymous Twitch chat counted per 10 s; streamlink → 10 s segments → joined source | two public live streams, about 45 s each: 13–37 chatters per bucket read with no login; five 1080p60 segments joined into a 41.9 s MP4 that decodes cleanly. Test footage deleted | ✅ |
+| Live: moment → source → pipeline → clip to post | the running app (watcher + worker) on the fixture video injected as recorded segments, real MLX transcription and real inference: validated 1080×1920 clip in 1 min 40, caption with the channel credit and hashtag, $0.06 | ✅ |
+| Live: a chat spike on a real stream to a finished clip, in one run | a live channel added by the owner (1080p60, about 5 chatters per 10 s), running app, real inference. Two moments went from chat peak to a validated 1080×1920 clip with the channel credit and no intervention: one forced by lowering the sensitivity to 1.5 (11 chatters against 5), one caught at the default 3.5 (14 against 5) — 2 min 47 and 2 min 25, $0.05 each. A first forced moment had exposed a defect (the final critique removed the moment's only clip); fixed, and that project re-run from ranking gave its clip | ✅ |
 | Twitch import (VOD over HLS, clip) | a real 1080p60 VOD and a real clip from NASA's channel; the VOD through the running app to a validated clip | ✅ |
 | Facecam detection | 3-minute extracts of four CC-BY GTA streams: bordered webcam and small borderless webcam measured to the pixel, cut-out streamer framed by estimate, no false detection on the stream without one | ✅ on those four |
 | Streamer + game layout | a French CC-BY GTA RP stream through the full pipeline with real inference (Rapide): 3 validated clips, streamer on top; one re-rendered with the streamer at the bottom | ✅ |
@@ -173,8 +191,22 @@ measured yet.
   enlarged. There is no manual override of the webcam rectangle yet; when detection is wrong, use another layout.
 - **Streamer + game** crops the game to its centre (about 46 % of its width): the minimap and HUD at the edges are
   not shown. Use "Gameplay complet" when they matter.
-- **Twitch**: VODs and clips only, no live capture, and the whole VOD is downloaded (about 3 GB per hour at
-  1080p60; the import refuses anything over the size limit). Subscriber-only VODs are refused by Twitch.
+- **Twitch import**: VODs and clips only, and the whole VOD is downloaded (about 3 GB per hour at 1080p60; the
+  import refuses anything over the size limit). Subscriber-only VODs are refused by Twitch.
+- **Live clipping**:
+  - Only channels whose streamer authorised you. The tool cannot check that; the box you tick is your statement.
+  - A clip is ready about two and a half minutes after the chat peak (measured: 2 min 25 and 2 min 47; rendering a
+    55 s clip is 80–95 s of it), and one worker handles jobs in order: a long VOD job that is already running
+    delays live clips.
+  - Chat spikes are also caused by raids, polls and "type 1 in chat": the editorial score on the clip tells you
+    which ones are worth posting, and when the final check would have dropped the clip, its objection is in the
+    clip's notes (`réserve du contrôle qualité`). Nothing is detected in the first two minutes of a stream.
+  - Ad breaks are not recorded (streamlink skips them), so the first seconds after a channel goes live can be lost
+    to the pre-roll, and a moment during a mid-roll has no footage.
+  - Chat is read through Twitch's anonymous IRC access, which Twitch does not guarantee. If it stops working, the
+    page shows "chat non lu" and no moment is detected.
+  - The recorder keeps the last 10 minutes per channel (about 600 MB at 1080p60) in `data/live/`.
+  - There is no notification when a clip is ready: keep the Direct page open.
 - **Smart crop** follows motion, not semantics; it stays centred unless the motion is clearly concentrated.
 - **Subtitle edits that change the word count** lose word-level highlighting for that line (the timing would
   otherwise be invented).
@@ -193,4 +225,5 @@ measured yet.
 2. Tune prompts and profile weights on real footage; use the reject reasons collected in `feedback`.
 3. Sound-event classification (CLAP or YAMNet) feeding the interest curve.
 4. Import only a time range of a long VOD; manual webcam rectangle in the editor; smart crop on real streams.
-5. Official TikTok adapter once a developer app exists.
+5. Official TikTok adapter once a developer app exists (unaudited apps can only post privately).
+6. Live: a notification when a clip is ready; chat-spike detection on finished VODs; a second worker for live jobs.

@@ -18,9 +18,11 @@ SOURCE ─► import ─► extract_audio ─► transcribe ─► detect_events
 | **API** (FastAPI, 127.0.0.1:8000) | Reads state, validates input, enqueues jobs, serves media with range requests. Never does heavy work. |
 | **Worker** (`python -m clipfactory.worker`) | Polls the `jobs` table, runs stages, heartbeats, recovers interrupted jobs on start. |
 | **Dashboard** (Next.js, :3000) | Client-rendered; talks to the API directly over CORS limited to localhost. |
+| **Live watcher** (`python -m clipfactory.live.watcher`) | Records enabled Twitch channels while they are live, reads their chat, turns chat spikes into pipeline jobs. Makes no clip itself. |
 | **Renderer** (`node render.mjs`) | One short-lived process per render, spawned by the worker. |
 
-SQLite in WAL mode is the only store. Media stays on disk; rows hold relative paths.
+SQLite in WAL mode is the only store. Media stays on disk; rows hold relative paths. The three Python processes
+start together and each brings the schema to head; `db.migrate` takes a file lock so a pending migration runs once.
 
 ## Job system
 
@@ -32,6 +34,51 @@ SQLite in WAL mode is the only store. Media stays on disk; rows hold relative pa
 - Cancellation, per-stage timeout and graceful shutdown share one mechanism: `ctx.should_stop()` raises.
 - **Replacing the queue later**: the worker only needs `claim_next_job`, `run_job`, `recover_interrupted_jobs`.
   A Redis-backed queue would swap the first and last; stages and the runner are untouched.
+
+## Live clipping
+
+```
+channel live ─► streamlink ─► ffmpeg segmenter ─► data/live/<channel>/<session>/000042.ts   (10 s each, 10 min kept)
+chat (IRC)   ─► distinct chatters / 10 s ─► spike vs. the last 5 min ─► live_moments (pending)
+                                                                          │ window = spike −45 s … +15 s
+                         whole segments of that window ─► concat ─► Source + Project + Job(priority 10) ─► the pipeline above
+```
+
+- **Recording.** `streamlink` waits for the channel to go live, skips ad segments and follows the low-latency
+  playlist; it pipes into an FFmpeg segmenter that only splits (`-c copy`). A stream that ends closes the session;
+  the recorder starts a new one and waits. An ad break is a gap in the footage, not an error.
+- **One timeline: the wall clock.** A segment is dated by when it finished arriving (its modification time), a chat
+  message by when Twitch sent it (the `tmi-sent-ts` tag). The recorder gets the video when viewers do, so "what was
+  on screen when chat reacted" is a lookup by wall clock, with no mapping to stream timestamps to keep right across
+  ads and restarts. Precision is a few seconds, which the window absorbs: the pipeline then picks and refines the
+  clip inside it. Dating chat by send time matters after a stalled link: the backlog belongs to buckets that were
+  already read and is dropped, instead of landing in one bucket and looking like a spike.
+- **Chat.** One anonymous, read-only IRC connection for all channels. The signal is the number of *distinct chatters*
+  per 10-second bucket: one person spamming cannot move it. A bucket not fully covered by the connection is
+  unknown, not empty.
+- **Spike.** `z = (chatters − median of the previous 30 buckets) / max(1.4826·MAD, √baseline)`. The Poisson floor
+  keeps a chat of two people per bucket from firing on its own noise. A spike needs `z ≥ 3.5` and at least
+  5 chatters, fires on the rising edge only, at most once per window length, never in the first two minutes of a
+  broadcast (a stream that just started is all greetings), and only while footage is being recorded. A broadcast
+  that comes back within two minutes of a drop is the same broadcast: it does not wait two minutes again.
+- **Why the window starts 45 s before.** Chat reacts *after* the moment. The source handed to the pipeline is the
+  minute around the spike; `stage_analyze` adds a `chat_spike` candidate ending at the end of that source, so the
+  moment chat pointed at always competes with what the signals and the transcript model propose.
+- **Quality threshold 0.** Every chat-detected moment yields its clip, shown with its editorial score: posting is
+  manual, so the reviewer is the gate. That holds for the final critique too: at threshold 0 (live or not) it can
+  still adjust a clip's boundaries, but a clip it would reject is kept, with the objection in the clip's notes
+  (`réserve du contrôle qualité : …`). The post text credits the channel (`🎥 twitch.tv/<login>`, `#<login>`).
+- **Failure handling.** Chat reconnects and re-joins, with a backoff that starts over after any connection that
+  held, and drops a link that has been silent for 30 s (it pings every 10 s). `Recorder.poll` owns every start:
+  the first one, the restart after a stream ends, the retries (5 s to 60 s apart) after one that failed; a recorder
+  that failed is shown in error until a new one has stayed up 30 s. Each tick writes what it observed — recorder
+  state, chat, new moments — before assembling any footage, and every recorder and every moment is handled on its
+  own, so one failure costs neither another channel nor a spike. A restart finishes a pending moment from the
+  segments on disk or marks it `failed` with a reason. Segments older than the buffer are deleted, except those a
+  pending moment still needs. A moment with less than 10 s of real footage is not a clip.
+- **One watcher, awake.** A file lock allows one watcher per data folder (a second one would stop the first one's
+  recorders and clip every spike twice); segmenters orphaned by a killed watcher are stopped at the next start.
+  While at least one channel is watched the watcher holds a macOS idle-sleep assertion (`caffeinate`).
 
 ## Caching and invalidation
 
@@ -72,6 +119,8 @@ was measured (`energy_peak`, `transient_burst`, `sudden_loudness`, `silence`).
    mean of nine rubric marks. Result is 0–100, labelled an editorial estimate everywhere, never a probability.
 5. **Selection**: greedy by score with temporal-overlap and text-similarity de-duplication and a small penalty for
    repeating an event type. Stops at the quality threshold; returns fewer clips than asked and says why.
+   The final critique (`stage_refine`) may then reject a selected clip — unless the threshold is 0, which means
+   "show me everything": the clip is kept and the objection is written in its notes.
 6. **Feedback**: accept/reject decisions adjust an event type by at most ±5 points, only after ten decisions, with
    smoothing. The `feedback` table is append-only and snapshots what a future learned ranker would need.
 
@@ -135,4 +184,9 @@ range, and audio offset against the cut by envelope cross-correlation (±80 ms).
 | Chat Completions API | Responses API | Both are documented for images and video; Chat Completions is the long-stable contract for `image_url` / `video_url` parts and `response_format`. |
 | Hand-written TS types beside the serializers | `packages/shared` + codegen | One consumer, ~200 lines. Revisit if a second client appears. |
 | Build our own pipeline | Adapting an existing auto-clipper | **Not evaluated in depth**: no survey of existing open-source clippers was carried out, so this is a judgement call, not a comparison. The gaming requirements (no centre crop, signal-first discovery, cheap pre-filtering before any model call) drove a purpose-built design. Reviewing existing projects for reusable ideas is still open. |
+| `streamlink` CLI piped into an FFmpeg segmenter | yt-dlp for live streams; our own HLS client | streamlink owns the Twitch specifics (waiting for a channel, ad segments, low latency) and is one killable process per channel. |
+| Anonymous IRC for chat | EventSub `channel.chat.message` | EventSub needs a logged-in user token; reading public chat needs none. IRC without login is not a guaranteed interface: if it goes, EventSub with a login is the fallback. |
+| Numbered segments dated by modification time | Segments named by `strftime` | After a network stall several segments are closed in the same second; time-based names made them overwrite each other (reproduced). |
+| Distinct chatters per bucket | Raw message count | A single spammer or a bot burst is not a moment. |
+| A live moment becomes an ordinary pipeline job | A dedicated fast path (cut + captions only) | One way to make a clip. The cost is about two and a half minutes from chat peak to finished clip. |
 | Sources kept in their original container | Normalising every upload to one mezzanine format | Transcoding a three-hour file doubles disk use and time for no gain: FFmpeg reads the original for every derived artifact. |

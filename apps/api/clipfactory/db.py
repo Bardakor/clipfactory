@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import fcntl
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
@@ -77,13 +78,16 @@ def get_session() -> Iterator[Session]:
 
 
 def migrate() -> None:
-    """Bring the schema to head. Safe to call on every process start."""
-    from alembic.config import Config
-
+    """Bring the schema to head. Safe to call on every process start, including by several processes at once."""
     from alembic import command
+    from alembic.config import Config
 
     api_dir = Path(__file__).resolve().parents[1]
     cfg = Config(str(api_dir / "alembic.ini"))
     cfg.set_main_option("script_location", str(api_dir / "migrations"))
     cfg.set_main_option("sqlalchemy.url", f"sqlite:///{get_settings().db_path}")
-    command.upgrade(cfg, "head")
+    # The API, the worker and the live watcher start together. Without this lock they would all run a
+    # pending migration at the same time and all but one would crash on "table already exists".
+    with (get_settings().data_dir / ".migrate.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)  # released when the file is closed
+        command.upgrade(cfg, "head")

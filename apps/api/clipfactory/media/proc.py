@@ -24,7 +24,8 @@ def require(binary: str) -> str:
     return path
 
 
-def _terminate(proc: subprocess.Popen) -> None:
+def terminate(proc: subprocess.Popen) -> None:
+    """Ask a process to stop, and kill it if it has not within five seconds."""
     if proc.poll() is None:
         proc.terminate()
         try:
@@ -84,7 +85,7 @@ def run(
                 raise StageTimeout(f"{cmd[0]} exceeded {timeout:.0f}s", command=cmd[0])
             time.sleep(0.1)
     except BaseException:
-        _terminate(proc)
+        terminate(proc)
         raise
     finally:
         for t in threads:

@@ -204,6 +204,36 @@ def cut_clip(
     return dst
 
 
+def segment_command(folder: Path, seconds: int) -> list[str]:
+    """Split a stream arriving on stdin into numbered MPEG-TS files of about ``seconds`` each.
+
+    Used by the live recorder, which owns the process. Nothing is re-encoded; segments start on keyframes.
+    Files are numbered, not named by time: a burst after a network stall closes several segments in the
+    same second, and time-based names would make them overwrite each other.
+    """
+    return [*_BASE, "-i", "pipe:0", "-c", "copy", "-f", "segment", "-segment_time", str(seconds), "-reset_timestamps", "1",
+            str(folder / "%06d.ts")]  # fmt: skip
+
+
+def concat_copy(parts: list[Path], dst: Path) -> Path:
+    """Join whole files of one recording end to end, without re-encoding.
+
+    This assembles a source from complete segments; it is never used to cut a clip (see ``cut_clip``).
+    """
+    tmp = _atomic(dst)
+    listing = tmp.with_suffix(".txt")
+    listing.write_text("".join("file '{}'\n".format(str(p).replace("'", "'\\''")) for p in parts))
+    try:
+        run([*_BASE, "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", "-movflags", "+faststart", str(tmp)], timeout=600)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+    finally:
+        listing.unlink(missing_ok=True)
+    tmp.replace(dst)
+    return dst
+
+
 def make_background(cut: Path, dst: Path, *, fps: int) -> Path:
     """Small pre-blurred copy used as the vertical backdrop (cheap to decode and scale up)."""
     tmp = _atomic(dst)

@@ -9,6 +9,15 @@ def now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+def from_epoch(seconds: float) -> datetime:
+    """Unix time → the naive-UTC datetime stored in the database."""
+    return datetime.fromtimestamp(seconds, UTC).replace(tzinfo=None)
+
+
+def to_epoch(dt: datetime) -> float:
+    return dt.replace(tzinfo=UTC).timestamp()
+
+
 def s_to_ms(seconds: float) -> int:
     return int(round(seconds * 1000))
 
