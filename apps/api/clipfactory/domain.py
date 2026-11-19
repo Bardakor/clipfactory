@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 Profile = Literal["gta6", "gta_rp", "gta_action", "general", "custom"]
-Preset = Literal["fast", "balanced", "max_quality", "custom"]
+Preset = Literal["eco", "fast", "balanced", "max_quality", "custom"]
 SubtitleStyle = Literal["viral", "clean", "gaming"]
 Layout = Literal["auto", "full", "crop", "split", "dynamic", "manual"]
 FacecamPosition = Literal["top", "bottom"]
@@ -106,8 +106,9 @@ def live_project_settings(profile: Profile) -> ProjectSettings:
 
     The source *is* the moment (about a minute around the spike), so it yields one clip, and that clip
     is always shown with its score: the person reviewing it before posting is the quality gate.
+    Chat has already chosen the moment, so the ``eco`` preset spends AI only on the post's title and caption.
     """
-    return ProjectSettings(profile=profile, clip_count=1, min_len_s=15, max_len_s=60, quality_threshold=0)
+    return ProjectSettings(profile=profile, clip_count=1, min_len_s=15, max_len_s=60, quality_threshold=0, preset="eco")
 
 
 # ── media ───────────────────────────────────────────────────────────────────

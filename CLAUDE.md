@@ -83,6 +83,8 @@ scripts/make-fixture.sh        # synthetic video with real synthesised FR/EN spe
   assembled is marked `failed` with a French reason. What a tick observed (state, chat, new moments) is written
   before any footage is assembled.
 - Only `Recorder.poll` starts or restarts a recorder; a failed start is retried with backoff, never forgotten.
+- Live channels run on the `eco` preset (`live_project_settings`): one AI call per clip, its title and caption. An
+  AI call added to a live clip must show, on real clips, that it changes what gets posted.
 
 ## Media rules
 

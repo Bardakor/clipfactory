@@ -772,7 +772,7 @@ def _final_check_rejects(monkeypatch) -> list:
 @pytest.mark.slow
 def test_live_moment_keeps_its_clip_when_the_final_check_objects(settings, monkeypatch, synthetic_video):
     _final_check_rejects(monkeypatch)
-    _live_job(monkeypatch, synthetic_video)
+    _live_job(monkeypatch, synthetic_video, preset="balanced")  # eco, the live default, has no final check
     with session_scope() as s:
         (clip,) = s.scalars(select(Clip))  # no quality threshold: the person posting decides, with the objection in view
         assert clip.render_status == "rendered"
@@ -784,7 +784,7 @@ def test_live_moment_keeps_its_clip_when_the_final_check_objects(settings, monke
 @pytest.mark.slow
 def test_final_check_still_rejects_when_a_quality_threshold_is_set(settings, monkeypatch, synthetic_video):
     _final_check_rejects(monkeypatch)
-    _live_job(monkeypatch, synthetic_video, quality_threshold=1)
+    _live_job(monkeypatch, synthetic_video, quality_threshold=1, preset="balanced")
     with session_scope() as s:
         assert s.scalars(select(Clip)).all() == []
         assert OBJECTION in [c.reject_reason for c in s.scalars(select(Candidate))]
@@ -794,7 +794,7 @@ def test_final_check_still_rejects_when_a_quality_threshold_is_set(settings, mon
 def test_final_check_is_not_shown_a_title_that_does_not_exist(settings, monkeypatch, synthetic_video):
     monkeypatch.setattr(FakeAnalyst, "find_moments", lambda self, chunks, per_chunk, ctx: [])  # signals only: no title yet
     shown = _final_check_rejects(monkeypatch)
-    _live_job(monkeypatch, synthetic_video, quality_threshold=1)
+    _live_job(monkeypatch, synthetic_video, quality_threshold=1, preset="balanced")
     assert shown and all(value for b in shown for value in (b.moment or {}).values())
 
 
@@ -808,6 +808,22 @@ def test_live_moment_goes_through_the_pipeline_with_a_credited_post(settings, mo
         assert clip.render_status == "rendered" and clip.validation["ok"] and clip.is_test
         assert clip.social["caption"].endswith("\n🎥 twitch.tv/marlon")
         assert clip.social["hashtags"] == ["#test", "#marlon"]
+
+
+@pytest.mark.slow
+def test_a_live_moment_costs_one_ai_call(settings, monkeypatch, synthetic_video):
+    calls = []
+    for name in ("find_moments", "describe_visual", "score", "critique", "social"):
+        def record(self, *args, _name=name, _real=getattr(FakeAnalyst, name)):  # noqa: ANN001, ANN002, ANN202
+            calls.append(_name)
+            return _real(self, *args)
+
+        monkeypatch.setattr(FakeAnalyst, name, record)
+    _live_job(monkeypatch, synthetic_video)
+    assert calls == ["social"]  # chat chose the moment: the model only writes the post
+    with session_scope() as s:
+        (clip,) = s.scalars(select(Clip))
+        assert clip.justification.startswith("Score heuristique, sans analyse IA") and clip.social["title"] == "[TEST] Titre simulé"
 
 
 # ── API ─────────────────────────────────────────────────────────────────────

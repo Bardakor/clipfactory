@@ -25,7 +25,7 @@ const schema = z
     min_len_s: z.number().int().min(5).max(120),
     max_len_s: z.number().int().min(10).max(180),
     quality_threshold: z.number().int().min(0).max(100),
-    preset: z.enum(["fast", "balanced", "max_quality", "custom"]),
+    preset: z.enum(["eco", "fast", "balanced", "max_quality", "custom"]),
     subtitle_style: z.enum(["viral", "clean", "gaming"]),
     burn_subtitles: z.boolean(),
     layout: z.enum(["auto", "full", "crop", "split", "dynamic"]),

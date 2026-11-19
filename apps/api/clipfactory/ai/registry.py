@@ -36,6 +36,15 @@ REQUIRED_MODALITY: dict[AITask, str] = {
 
 # Ordered preferences per preset, verified against the catalogue on 2026-11-11.
 PRESET_MODELS: dict[str, dict[AITask, list[str]]] = {
+    # Only social_caption is called under eco (see BUDGETS); the cheapest structured-output models, checked 2026-11-19.
+    "eco": {
+        "transcript_analysis": ["anthropic/claude-haiku-5.5", "google/gemini-3.1-flash-lite"],
+        "vision_image": ["google/gemini-3.1-flash-lite"],
+        "vision_video": ["google/gemini-3.1-flash-lite"],
+        "ranking": ["anthropic/claude-haiku-5.5", "google/gemini-3.1-flash-lite"],
+        "critique": ["anthropic/claude-haiku-5.5", "google/gemini-3.1-flash-lite"],
+        "social_caption": ["anthropic/claude-haiku-5.5", "google/gemini-3.1-flash-lite"],
+    },
     "fast": {
         "transcript_analysis": ["google/gemini-3.1-flash-lite", "openai/gpt-6-luna", "anthropic/claude-haiku-5.5"],
         "vision_image": ["google/gemini-3.1-flash-lite", "qwen/qwen3.8-flash"],
@@ -77,9 +86,13 @@ class AnalysisBudget:
     video_input: bool
     transcript_chunk_s: int = 720
     transcript_overlap_s: int = 90
+    transcript_moments: bool = True  # ask a model for moments in the transcript
+    editorial_ranking: bool = True  # ask a model to score candidates; off = heuristic ranking
 
 
 BUDGETS: dict[str, AnalysisBudget] = {
+    # Signals (and chat, on a live project) choose the clip; a model only writes its title and caption.
+    "eco": AnalysisBudget(2.5, 0.0, 0, 0, 512, critique=False, video_input=False, transcript_moments=False, editorial_ranking=False),
     "fast": AnalysisBudget(2.5, 1.0, 10, 6, 512, critique=False, video_input=False),
     "balanced": AnalysisBudget(3.5, 2.0, 30, 8, 640, critique=True, video_input=False),
     "max_quality": AnalysisBudget(5.0, 3.0, 60, 12, 768, critique=True, video_input=True),

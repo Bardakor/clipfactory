@@ -135,8 +135,11 @@ validation with one bounded repair turn, a disk cache, and usage accounting. Act
 OpenRouter) and estimated cost (tokens × catalogue price) are stored in separate columns and shown separately.
 
 `ai/registry.py` fetches the public model catalogue, and resolves each task to models that actually accept the
-required modality. Presets (fast / balanced / max quality / custom) differ in models **and** in budget: pool size,
-how many candidates get vision, frames per candidate, whether a final critique pass runs.
+required modality. Presets (eco / fast / balanced / max quality / custom) differ in models **and** in budget: pool
+size, how many candidates get vision, frames per candidate, whether a final critique pass runs, and whether a model
+looks for moments in the transcript or scores the candidates at all. `eco` turns all of that off: signals (and, on a
+live project, chat) choose the clip with the heuristic score, and a model only writes its title and caption. It is
+the live default, because chat has already chosen the moment.
 
 ## Rendering
 

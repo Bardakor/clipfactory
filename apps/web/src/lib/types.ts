@@ -4,7 +4,7 @@ export type ApiErrorBody = { code: string; message: string; retryable: boolean; 
 
 export type FacecamPosition = "top" | "bottom";
 export type Profile = "gta6" | "gta_rp" | "gta_action" | "general" | "custom";
-export type Preset = "fast" | "balanced" | "max_quality" | "custom";
+export type Preset = "eco" | "fast" | "balanced" | "max_quality" | "custom";
 export type SubtitleStyle = "viral" | "clean" | "gaming";
 export type Layout = "auto" | "full" | "crop" | "split" | "dynamic" | "manual";
 export type JobStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled";

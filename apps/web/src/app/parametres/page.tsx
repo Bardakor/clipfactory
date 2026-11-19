@@ -27,7 +27,7 @@ const optionalInt = z.preprocess((v) => (v === "" || v === null || Number.isNaN(
 const optionalMoney = z.preprocess((v) => (v === "" || v === null || Number.isNaN(v) ? null : Number(v)), z.number().min(0).nullable());
 
 const schema = z.object({
-  preset: z.enum(["fast", "balanced", "max_quality", "custom"]),
+  preset: z.enum(["eco", "fast", "balanced", "max_quality", "custom"]),
   use_video_input: z.boolean(),
   transcription_provider: z.enum(["mlx", "openrouter"]),
   mlx_model: z.string().min(3),

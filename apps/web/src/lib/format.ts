@@ -101,7 +101,13 @@ export const PROFILE_LABELS: Record<string, string> = {
 
 export const FACECAM_POSITION_LABELS: Record<string, string> = { top: "Streamer en haut", bottom: "Streamer en bas" };
 
-export const PRESET_LABELS: Record<string, string> = { fast: "Rapide", balanced: "Équilibré", max_quality: "Qualité max", custom: "Personnalisé" };
+export const PRESET_LABELS: Record<string, string> = {
+  eco: "Économique",
+  fast: "Rapide",
+  balanced: "Équilibré",
+  max_quality: "Qualité max",
+  custom: "Personnalisé",
+};
 
 export const LAYOUT_LABELS: Record<string, string> = {
   auto: "Automatique",

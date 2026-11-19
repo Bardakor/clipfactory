@@ -34,8 +34,11 @@ one-minute fixture on Rapide cost under 2 cents. Vision and ranking scale with t
 transcript analysis scales with duration. Changing the threshold, clip count or profile weights afterwards re-uses
 the cached answers and costs nothing.
 
-A live moment (about one minute of footage, Équilibré) cost **$0.06** on the fixture: six requests per clip. A busy
-night with thirty chat spikes is about $2; the per-job alert and hard cap in *Paramètres* apply to live clips too.
+Live channels run on **Économique**: chat has already chosen the moment, so the clip is picked by signals and chat
+(heuristic score, labelled as such) and the only AI call is its title and caption, on the cheapest model — an
+estimated $0.0004 per clip (the caption call's measured tokens at Haiku 5.5's catalogue price). On Équilibré a live clip cost $0.054 on average over 129 real clips
+(2026-11-19): vision 2.1 ¢, ranking 1.75 ¢, transcript analysis 0.7 ¢, critique 0.6 ¢ (164 critiques, none changed
+a clip), caption 0.3 ¢. Projects created before the switch keep the preset they were made with.
 
 A model's reasoning tokens are billed as output, and OpenRouter refuses a request when the account cannot cover its
 `max_tokens`, so keep a small balance rather than an exact one. *Paramètres* has a per-job cost alert and an
@@ -85,6 +88,7 @@ stored in SQLite.
 
 | Preset | Models (resolved against the live catalogue) | Analysis budget |
 | --- | --- | --- |
+| Économique | cheapest text model, for the title and caption only | no transcript analysis, no vision, heuristic ranking, no final critique — the live default |
 | Rapide | small multimodal model for everything | fewer candidates, 6 frames each, no final critique |
 | Équilibré | fast multimodal model for discovery and vision, stronger model for ranking and critique | default |
 | Qualité max | strongest models, real video input when the model accepts it | most candidates, 12 frames, critique |

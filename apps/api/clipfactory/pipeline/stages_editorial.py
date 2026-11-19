@@ -147,7 +147,9 @@ def stage_analyze(ctx: JobContext) -> None:
         ctx.log(f"moment signalé par le chat : {chat[0]} personnes en 10 s (habituel : {chat[1]:.0f})")
     ctx.progress(0.1, "analyse du transcript")
 
-    if analyst is not None and segments:
+    if analyst is not None and not budget.transcript_moments:
+        ctx.log("analyse IA du transcript et des images non demandée par ce préréglage")
+    elif analyst is not None and segments:
         chunks = _transcript_chunks(segments, inputs.duration_ms, budget, events, motion)
         per_chunk = max(3, math.ceil(pool_target / max(1, len(chunks))) + 1)
         moments = analyst.find_moments(chunks, per_chunk, ectx) if chunks else []
@@ -193,8 +195,8 @@ def stage_analyze(ctx: JobContext) -> None:
 
     # 2 ── multimodal understanding, only for the most promising candidates
     analysed = 0
-    if analyst is not None and rows:
-        top_k = min(len(rows), budget.visual_cap, math.ceil(p.clip_count * budget.visual_factor))
+    top_k = min(len(rows), budget.visual_cap, math.ceil(p.clip_count * budget.visual_factor))
+    if analyst is not None and top_k:
         shortlist = sorted(rows, key=lambda c: (c.heuristic_score or 0) + (0.15 if "transcript_llm" in c.origins else 0), reverse=True)[:top_k]
         use_video = budget.video_input and ctx.runtime.use_video_input and not analyst.is_test
         items: list[VisualInput] = []
@@ -293,7 +295,9 @@ def stage_rank(ctx: JobContext) -> None:
 
     analyst, gateway = build_analyst(ctx)
     scores = {}
-    if analyst is not None:
+    if analyst is not None and not BUDGETS[p.preset].editorial_ranking:
+        ctx.log("notation IA non demandée par ce préréglage : classement heuristique")
+    elif analyst is not None:
         briefs = rank_briefs(rows, segments)
         ctx.progress(0.2, f"notation éditoriale de {len(briefs)} candidats")
         scores = analyst.score(briefs, _editorial_context(inputs))
